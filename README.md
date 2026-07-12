@@ -1,0 +1,167 @@
+# Neogents
+
+An orchestrator that runs the show and a second brain that never forgets.
+
+NEO is a Claude Code plugin that turns your session into a coordinated team. It takes over the main thread, classifies every request, delegates to a Matrix-themed specialist roster, and keeps a persistent memory of your project in plain markdown files that survive context loss, compaction, and machine switches.
+
+Zero runtime dependencies. Markdown + shell + JSON only.
+
+---
+
+## Install
+
+**From the marketplace:**
+```
+/plugin marketplace add vidit19sharma/neogents
+/plugin install neo@neogents
+```
+
+**Dev mode (from this repo):**
+```
+claude --plugin-dir .
+```
+
+`settings.json` contains `{"agent": "neo"}`, which hands the main thread to NEO on every session start. To opt out, disable the plugin or override `agent` in your user settings.
+
+---
+
+## First run
+
+```
+/neo:init
+```
+
+Scaffolds `.neo/brain/` from templates, runs a short interview to fill `BRIEF.md`, and writes a starter `CLAUDE.md` if none exists. The brain loads automatically on every subsequent session start via the `SessionStart` hook.
+
+---
+
+## Agent Roster
+
+| Agent | Matrix role | Job | Model | Spawns? |
+|---|---|---|---|---|
+| **neo** | The One | Orchestrator. Classifies intent, delegates, verifies evidence. Main session agent. | session model | only spawner |
+| **neo-shadow** | Shadow | Memory keeper. Maintains `.neo/brain/`. Runs on the main model. | inherit | no |
+| **keymaker** | knows every door | Codebase search. Read-only. Fire 2-5 in parallel for broad recon. | haiku | no |
+| **tank** | operator | External docs, OSS examples, web research. Read-only. | haiku | no |
+| **architect** | designed the Matrix | Plan synthesis. Writes plan artifacts to `.neo/plans/`. | opus | no |
+| **trinity** | elite executor | Implements ONE plan task per fresh context. | sonnet | no |
+| **mouse** | built the training simulations | Test engineer. Designs and writes tests, runs them, reports evidence. Spawned after trinity implements or when the user asks for tests. | sonnet | no |
+| **smith** | hunts flaws | Adversarial review. Read-only + test execution. | opus | no |
+| **switch** | not like this | Code simplifier. Behavior-preserving slop removal after smith approves and before shipping. | sonnet | no |
+| **oracle** | sees outcomes | Debugging consultant, architecture tradeoffs. Read-only. | opus | no |
+| **morpheus** | captains the ship | Git/GitHub operator. Commits, pull-before-push, batched pushes, release docs. | sonnet | no |
+
+Spawn depth is capped at 2 (main thread -> specialist). Leaf agents have no `Agent` tool and cannot spawn.
+
+---
+
+## Commands
+
+| Command | What it does |
+|---|---|
+| `/neo:init` | Scaffold `.neo/` from templates + brief interview |
+| `/neo:save` | Manual brain save via neo-shadow |
+| `/neo:status` | Brain freshness, current focus, file sizes, tooling check |
+| `/neo:plan` | Force DEEP tier: interview + architect artifact + approval gate |
+| `/neo:review` | Force adversarial review via smith on current diff |
+| `/neo:map` | Fan out parallel keymakers across the codebase, then have neo-shadow rewrite `ARCHITECTURE.md` |
+
+---
+
+## Tiered Pipeline
+
+NEO classifies every request into one of three tiers before acting.
+
+```
+TRIVIAL  ─── 1 file, known change
+             NEO edits directly + runs diagnostics
+
+STANDARD ─── 2+ files or steps, clear scope
+             keymaker/tank recon (parallel)
+               └─> NEO todo-plan
+                     └─> trinity implements
+                           └─> mouse writes + runs tests (when behavior changed and test suite exists)
+                                 └─> smith reviews
+
+DEEP     ─── new feature / ambiguous / architectural
+             /neo:plan forces this tier
+             interview (main thread, one question at a time)
+               └─> architect artifact (.neo/plans/)
+                     └─> user approval
+                           └─> trinity per task (fresh contexts, parallel waves)
+                                 └─> mouse writes + runs tests
+                                       └─> smith adversarial pass
+                                             └─> switch strips slop
+                                                   └─> neo-shadow saves brain
+```
+
+Oracle is consulted automatically after 2 failed fix attempts at any tier.
+
+---
+
+## Second Brain
+
+The brain lives in `.neo/brain/` inside your project. It loads at session start via hook (zero LLM cost) and is written by neo-shadow at task boundaries.
+
+| File | Content | Cadence |
+|---|---|---|
+| `BRIEF.md` | Scope, goals, constraints | Pivots only |
+| `ACTIVE.md` | Current focus, next steps, open questions | Every save (150-line cap) |
+| `PROGRESS.md` | Append-only ledger of what shipped | As completed |
+| `DECISIONS.md` | Decision + rationale + alternatives | When made |
+| `LESSONS.md` | Anti-patterns, "never again" rules | When noticed |
+| `ARCHITECTURE.md` | System patterns, key decisions, gotchas | When patterns change |
+| `INDEX.md` | Map of content with `[[wiki-links]]` | When structure changes |
+
+Plans live in `.neo/plans/YYYY-MM-DD-<slug>.md`.
+
+**Load path:** `SessionStart` hook cats `BRIEF + ACTIVE + LESSONS + INDEX` into context, plus the last 20 lines of `PROGRESS`. `ARCHITECTURE` and `DECISIONS` load on demand via INDEX pointers.
+
+**Write path:** NEO hands neo-shadow a session delta (what happened, git diff summary, decisions, lessons, where work stopped). Shadow rewrites `ACTIVE`, appends `PROGRESS`, extracts `DECISIONS`/`LESSONS` with judgment, touches `ARCHITECTURE` only on pattern changes.
+
+---
+
+## Uninstall / Opt-out
+
+- **Disable the plugin** to stop NEO from taking over the main thread.
+- **Remove `.neo/`** from your project to delete the brain entirely.
+- **Create `.neo/no-auto-commit`** to stop the `SessionEnd` hook from auto-committing brain changes.
+- The brain files are plain markdown. They're yours; nothing is locked in.
+
+---
+
+## Repo Layout
+
+```
+neo/
+├── .claude-plugin/
+│   ├── plugin.json          # name "neo" -> /neo:* namespace
+│   └── marketplace.json
+├── agents/                  # 11 agent definitions
+│   ├── mouse.md
+│   └── switch.md            # (plus neo, neo-shadow, keymaker, tank, architect, trinity, smith, oracle, morpheus)
+├── skills/                  # 6 commands (init, save, status, plan, review, map)
+│   └── map/
+├── hooks/
+│   ├── hooks.json
+│   └── scripts/             # 7 shell scripts
+│       └── format.sh
+├── templates/
+│   ├── brain/               # 7 brain file templates
+│   ├── CLAUDE.md
+│   └── plan.md
+├── settings.json            # {"agent": "neo"}
+└── docs/
+    ├── architecture.md
+    ├── brain-spec.md
+    ├── customization.md
+    ├── hooks-reference.md
+    ├── portability.md
+    └── specs/
+```
+
+---
+
+## License
+
+MIT
