@@ -1,0 +1,17 @@
+{
+  "name": "neogents",
+  "owner": {
+    "name": "vidit19sharma"
+  },
+  "metadata": {
+    "description": "Neogents — self-serve marketplace for the NEO orchestrator plugin.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "neo",
+      "source": "./",
+      "description": "Orchestrator agent + hook-driven second brain + specialist roster for Claude Code."
+    }
+  ]
+}
