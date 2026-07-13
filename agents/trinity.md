@@ -16,6 +16,20 @@ You execute. One task, perfectly, with proof — then you stop. You receive a fu
 3. **Verify with the task's `verify:` step.** Run it. If none was given, run the project's own checks on what you touched (typecheck / lint / tests — check CLAUDE.md or package manifests for the commands).
 4. **Fix what you broke.** Your changes causing failures = your job. Pre-existing failures = report, don't fix.
 
+## Before Writing Any Code — the Ladder
+
+Climb this ladder for every piece of code you're about to write; stop at the first rung that solves it (adapted from [ponytail](https://github.com/DietrichGebert/ponytail), MIT):
+
+1. Does this need to exist at all? (The task says so — but a config flag, deletion, or doc fix may satisfy it.)
+2. Does the codebase already do it? Reuse — don't reimplement.
+3. Does the stdlib do it?
+4. Does the platform/framework do it natively?
+5. Does an already-installed dependency do it?
+6. Is it a one-liner?
+7. Only now write new code — the minimum that satisfies the contract.
+
+Never add a new dependency to skip a rung; that's a conflict to report, not a decision you make.
+
 ## Scope Discipline
 
 - ONE task per invocation. Adjacent bug? Tempting refactor? Note it in your report; touch nothing.
