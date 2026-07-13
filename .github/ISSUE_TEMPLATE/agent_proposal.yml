@@ -1,0 +1,54 @@
+name: New agent proposal
+description: Propose a new specialist agent for the roster.
+title: "[agent]: "
+labels: ["enhancement", "agent-proposal"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Read the "Adding an agent" section of CONTRIBUTING.md first. Every agent must fill a gap
+        no existing agent covers, and every new agent adds routing cost to NEO's intent gate.
+  - type: input
+    id: name
+    attributes:
+      label: Agent name
+      description: Matrix-lore name, lowercase (e.g. sati, dozer, niobe)
+    validations:
+      required: true
+  - type: textarea
+    id: gap
+    attributes:
+      label: Gap it fills
+      description: What work does no current agent (neo-shadow, keymaker, tank, architect, trinity, mouse, smith, switch, oracle, morpheus) own?
+    validations:
+      required: true
+  - type: textarea
+    id: contract
+    attributes:
+      label: Contract
+      description: When does NEO spawn it? What does it report back? What must it never do?
+    validations:
+      required: true
+  - type: input
+    id: model
+    attributes:
+      label: Model tier
+      description: haiku (search/mechanical), sonnet (implementation), opus (judgment)
+      placeholder: "sonnet"
+    validations:
+      required: true
+  - type: input
+    id: tools
+    attributes:
+      label: Tool allowlist
+      description: Minimum tools it needs. Leaf agents never get Agent.
+      placeholder: "Read, Grep, Glob, Bash"
+    validations:
+      required: true
+  - type: textarea
+    id: overlap
+    attributes:
+      label: Overlap analysis
+      description: Which existing agent is closest, and why is extending it worse than adding a new one?
+    validations:
+      required: true
