@@ -116,6 +116,8 @@ Brain writes are the highest-leverage tokens in the system. A wrong lesson poiso
 - When the stop-gate flags a stale brain
 - On `/neo:save` (manual)
 
+**Compaction awareness:** the starter `CLAUDE.md` ships a `## Compact Instructions` section that Claude Code injects into every compaction prompt. It tells compaction to preserve current focus, open todos, and unverified changes, and to treat `.neo/brain/` as the source of truth instead of restating it. Combined with `brain-load.sh` re-firing after compaction (SessionStart has no source matcher), the brain survives compaction on both sides: guidance going in, auto-reload coming out.
+
 ---
 
 ## One Source of Truth
