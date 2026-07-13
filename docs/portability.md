@@ -68,7 +68,7 @@ The brain files, agent prose, skill files, and templates are all harness-neutral
 
 ## What Stays the Same Across Harnesses
 
-- The second brain contract: seven files, their purposes, update cadences, and size rules. Documented in [brain-spec.md](brain-spec.md).
+- The second brain contract: eight files, their purposes, update cadences, and size rules. Documented in [brain-spec.md](brain-spec.md).
 - The agent roster: neo, neo-shadow, keymaker, tank, architect, trinity, smith, oracle. Their jobs, model tiers, and tool restrictions are harness-neutral concepts.
 - The tiered pipeline: TRIVIAL / STANDARD / DEEP. The classification logic and escalation rules don't depend on any harness.
 - The delegation contract: six-section spawn prompt (TASK / EXPECTED OUTCOME / TOOLS / MUST DO / MUST NOT DO / CONTEXT). This is a prose discipline, not a tool call.

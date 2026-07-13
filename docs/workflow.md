@@ -43,7 +43,7 @@ Run `/neo:init` to bootstrap the brain. Here's what happens:
 
 1. **Guard check.** If `.neo/brain/` already exists, init stops and points you to `/neo:status` instead. It never overwrites a living brain.
 
-2. **Scaffold.** Creates `.neo/brain/` and `.neo/plans/`, then copies the seven brain template files from `templates/brain/`.
+2. **Scaffold.** Creates `.neo/brain/` and `.neo/plans/`, then copies the eight brain template files from `templates/brain/`.
 
 3. **Interview.** NEO asks one question at a time, leading each with its best-guess answer inferred from the codebase. It reads `package.json`, `Makefile`, and similar files before asking about build commands. It confirms; it doesn't ask blind. The questions cover: what the project is, who it's for, the scope of the current version, explicit non-goals, hard constraints, and build/test/lint commands.
 
@@ -217,7 +217,7 @@ NEO edits directly and runs diagnostics. Spawning would cost more than doing. Th
 
 ## The Second Brain
 
-The brain lives in `.neo/brain/` as seven plain markdown files. It's yours. Nothing is locked in, and it travels with the repo via git.
+The brain lives in `.neo/brain/` as eight plain markdown files. It's yours. Nothing is locked in, and it travels with the repo via git.
 
 | File | What it holds | When it changes |
 |---|---|---|
@@ -228,6 +228,7 @@ The brain lives in `.neo/brain/` as seven plain markdown files. It's yours. Noth
 | `LESSONS.md` | Anti-patterns learned the hard way | When a mistake teaches something reusable |
 | `ARCHITECTURE.md` | System patterns, module relationships, stack, gotchas | When patterns change |
 | `INDEX.md` | Map of all brain content with `[[wiki-links]]` | When structure changes |
+| `WORKFLOWS.md` | Recurring multi-step workflows; `candidate` → `proposed` → `skilled` | When a sequence recurs (3-sighting threshold); promoted via `/neo:train` |
 
 Plans live separately in `.neo/plans/YYYY-MM-DD-<slug>.md`.
 
@@ -243,7 +244,7 @@ INDEX.md        full
 PROGRESS.md     last 20 lines only
 ```
 
-`ARCHITECTURE.md` and `DECISIONS.md` are not loaded automatically. The INDEX points to them; NEO reads them on demand when they're relevant.
+`ARCHITECTURE.md`, `DECISIONS.md`, and `WORKFLOWS.md` are not loaded automatically. The INDEX points to them; NEO reads them on demand when they're relevant. If `WORKFLOWS.md` has any `status: proposed` entries, `brain-load.sh` surfaces a one-line hint at session start so NEO can offer `/neo:train`.
 
 ### When saves happen
 
@@ -262,7 +263,7 @@ NEO never writes brain files itself. That judgment belongs to neo-shadow, runnin
 1. NEO assembles a session delta: what happened, what changed (git diff summary), decisions made, mistakes hit, where work stopped, what comes next.
 2. NEO spawns neo-shadow with the delta.
 3. neo-shadow reads the current brain files before writing anything.
-4. neo-shadow rewrites `ACTIVE.md` in full (150-line cap), appends to `PROGRESS.md`, updates `DECISIONS.md`/`LESSONS.md` only when the delta earns it, touches `ARCHITECTURE.md` only on pattern changes, `BRIEF.md` only on genuine scope pivots.
+4. neo-shadow rewrites `ACTIVE.md` in full (150-line cap), appends to `PROGRESS.md`, updates `DECISIONS.md`/`LESSONS.md` only when the delta earns it, touches `ARCHITECTURE.md` only on pattern changes, `BRIEF.md` only on genuine scope pivots, and updates `WORKFLOWS.md` when the session repeated a known multi-step sequence (incrementing seen counts; setting `status: proposed` at 3 sightings and flagging it in the report).
 5. neo-shadow reports which files changed and flags anything contradictory.
 
 ### Auto-commit opt-out
@@ -281,6 +282,7 @@ Create `.neo/no-auto-commit` in your project root. The file's presence is the si
 | `/neo:plan` | Forces DEEP tier for any request; use when scope is ambiguous or architectural |
 | `/neo:review` | Before merging, after finishing a feature, or any time you want smith's adversarial pass |
 | `/neo:map` | When adopting NEO in a mature codebase, or when `ARCHITECTURE.md` is empty or stale |
+| `/neo:train` | When neo-shadow flags a proposed workflow (or you want to turn any recurring sequence into a skill); shows a draft for approval before writing anything |
 
 ### /neo:status in detail
 

@@ -29,7 +29,13 @@ fi
 
 echo ""
 echo "--- On demand (read only when needed) ---"
-echo "ARCHITECTURE.md and DECISIONS.md live in $BRAIN/ — consult INDEX above for what they hold."
+echo "ARCHITECTURE.md, DECISIONS.md, and WORKFLOWS.md live in $BRAIN/ — consult INDEX above for what they hold."
+
+# Surface workflows ready to become skills (status set by neo-shadow at 3+ sightings).
+if [ -s "$BRAIN/WORKFLOWS.md" ] && grep -q '^- status: proposed' "$BRAIN/WORKFLOWS.md" 2>/dev/null; then
+  echo ""
+  echo "[neo] WORKFLOWS.md has proposed entries — recurring workflows ready for /neo:train."
+fi
 
 # Detect-don't-depend: advertise optional tooling if present.
 if command -v graphify >/dev/null 2>&1 && [ -f "graph.json" ]; then

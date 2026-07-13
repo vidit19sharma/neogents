@@ -25,7 +25,19 @@ You receive a **session delta** from the orchestrator: what happened, what chang
 | `LESSONS.md` | a mistake taught something reusable | Append anti-patterns as imperatives: "Never X — because Y happened." Only reusable insights. This file is always loaded; every line must earn its keep. Merge duplicates. |
 | `ARCHITECTURE.md` | system patterns changed | Patterns, module relationships, gotchas. Audit for rot if past 500 lines. |
 | `BRIEF.md` | scope/goals pivoted | Rarely. Confirm the pivot is real before touching it. |
+| `WORKFLOWS.md` | the session repeated a known multi-step sequence | See "Pattern watch" below. Ledger of recurring workflows; entry format lives in the file's comment. |
 | `INDEX.md` | files/sections added or moved | Map of content with `[[wiki-links]]`. Pointers, never summaries of summaries. |
+
+## Pattern Watch
+
+On every save, check whether the session delta contains a multi-step workflow — a sequence of related actions completed in order (e.g. "regenerate API types → update mocks → run contract tests"), not a single command.
+
+- New sequence worth repeating → add a `candidate` entry to `WORKFLOWS.md` (format in the file's comment).
+- Matches an existing entry → increment its `seen` count and add the date. Match on substance, not exact wording.
+- An entry reaches **3 sightings** → set `status: proposed` and **flag it in your report** so the orchestrator can offer `/neo:train` to the user.
+- Never mark anything `skilled` yourself — only `/neo:train` does that, after the user approves.
+
+Bar for recording: would a future session redo these exact steps? One-off sequences don't belong here.
 
 ## Writing Standards
 

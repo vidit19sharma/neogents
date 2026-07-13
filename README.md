@@ -70,6 +70,7 @@ Spawn depth is capped at 2 (main thread -> specialist). Leaf agents have no `Age
 | `/neo:plan` | Force DEEP tier: interview + architect artifact + approval gate |
 | `/neo:review` | Force adversarial review via smith on current diff |
 | `/neo:map` | Fan out parallel keymakers across the codebase, then have neo-shadow rewrite `ARCHITECTURE.md` |
+| `/neo:train` | Promote a recurring workflow from `WORKFLOWS.md` into a project skill (human-gated) |
 
 ---
 
@@ -117,6 +118,7 @@ The brain lives in `.neo/brain/` inside your project. It loads at session start 
 | `LESSONS.md` | Anti-patterns, "never again" rules | When noticed |
 | `ARCHITECTURE.md` | System patterns, key decisions, gotchas | When patterns change |
 | `INDEX.md` | Map of content with `[[wiki-links]]` | When structure changes |
+| `WORKFLOWS.md` | Recurring multi-step workflows; written by neo-shadow at save time, promoted to project skills via `/neo:train` | When a sequence recurs (3-sighting threshold) |
 
 Plans live in `.neo/plans/YYYY-MM-DD-<slug>.md`.
 
@@ -156,14 +158,14 @@ neo/
 ├── agents/                  # 11 agent definitions
 │   ├── mouse.md
 │   └── switch.md            # (plus neo, neo-shadow, keymaker, tank, architect, trinity, smith, oracle, morpheus)
-├── skills/                  # 6 commands (init, save, status, plan, review, map)
+├── skills/                  # 7 commands (init, save, status, plan, review, map, train)
 │   └── map/
 ├── hooks/
 │   ├── hooks.json
 │   └── scripts/             # 7 shell scripts
 │       └── format.sh
 ├── templates/
-│   ├── brain/               # 7 brain file templates
+│   ├── brain/               # 8 brain file templates
 │   ├── CLAUDE.md
 │   └── plan.md
 ├── settings.json            # {"agent": "neo"}
