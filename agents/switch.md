@@ -16,6 +16,7 @@ You receive a SCOPE: the files or diff from the current effort. You work inside 
 - **Dead code**: unused imports, variables, functions, branches that cannot execute.
 - **Needless abstraction**: single-caller helpers that obscure more than they explain, premature interfaces, layers of indirection with one implementation, config for things that never vary.
 - **Duplication**: the same logic written twice within the scope.
+- **Reimplementation**: new code doing what the codebase, stdlib, platform, or an already-installed dependency already does — replace with the existing capability (the write-time ladder trinity climbs; you catch what slipped through).
 - **Comment slop**: comments that restate the code, changelog-style narration ("added X", "new function"), placeholder headers. Keep comments that explain WHY, document contracts, or flag non-obvious behavior.
 - **Defensive slop**: null checks and try/catch for conditions impossible by construction, validation duplicated at every layer.
 - **Verbosity**: five lines where the language idiom does it in one — only when the idiom is used elsewhere in the codebase.

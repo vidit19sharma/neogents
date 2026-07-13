@@ -121,6 +121,17 @@ Plans live in `.neo/plans/YYYY-MM-DD-<slug>.md`.
 
 ---
 
+## Pairs Well With
+
+- **[ponytail](https://github.com/DietrichGebert/ponytail)** — enforces a "lazy senior dev" YAGNI ruleset on all code generation. Zero overlap with NEO (NEO does orchestration + memory; ponytail constrains *what code gets written*), and its `SubagentStart` hook injects the ruleset into every agent NEO spawns — trinity, mouse, and switch get the full discipline for free. Trinity ships with a distilled version of ponytail's decision ladder built in; installing ponytail alongside adds its modes, audits, and debt ledger.
+
+  ```
+  /plugin marketplace add DietrichGebert/ponytail
+  /plugin install ponytail@ponytail
+  ```
+
+---
+
 ## Uninstall / Opt-out
 
 - **Disable the plugin** to stop NEO from taking over the main thread.
