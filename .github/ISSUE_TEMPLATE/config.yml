@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question / discussion
+    url: https://github.com/vidit19sharma/neogents/discussions
+    about: Ask questions, share setups, and discuss ideas that aren't yet concrete proposals.
+  - name: Security vulnerability
+    url: https://github.com/vidit19sharma/neogents/security/advisories/new
+    about: Report privately — never open a public issue for a security problem. See SECURITY.md.

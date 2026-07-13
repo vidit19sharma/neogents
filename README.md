@@ -1,5 +1,10 @@
 # Neogents
 
+[![CI](https://github.com/vidit19sharma/neogents/actions/workflows/ci.yml/badge.svg)](https://github.com/vidit19sharma/neogents/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Claude Code Plugin](https://img.shields.io/badge/Claude%20Code-plugin-d97757.svg)](https://code.claude.com/docs)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
 An orchestrator that runs the show and a second brain that never forgets.
 
 NEO is a Claude Code plugin that turns your session into a coordinated team. It takes over the main thread, classifies every request, delegates to a Matrix-themed specialist roster, and keeps a persistent memory of your project in plain markdown files that survive context loss, compaction, and machine switches.
@@ -167,12 +172,22 @@ neo/
     ├── brain-spec.md
     ├── customization.md
     ├── hooks-reference.md
+    ├── workflow.md          # end-to-end walkthrough: install -> daily loop -> shipping
     ├── portability.md
     └── specs/
 ```
 
 ---
 
+## Contributing
+
+Bug reports, feature requests, and agent proposals are welcome — issue templates guide each one.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a PR (it includes the full checklist for
+adding an agent), and [SECURITY.md](SECURITY.md) for how to report vulnerabilities privately.
+Changes are tracked in [CHANGELOG.md](CHANGELOG.md).
+
+---
+
 ## License
 
-MIT
+[MIT](LICENSE)

@@ -1,0 +1,66 @@
+name: Bug report
+description: Something in the plugin misbehaves — a hook blocks wrongly, an agent breaks its contract, a command fails.
+title: "[bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. The more precise the report, the faster the fix.
+  - type: input
+    id: claude-code-version
+    attributes:
+      label: Claude Code version
+      description: Output of `claude --version`
+      placeholder: "2.1.x"
+    validations:
+      required: true
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Plugin version
+      description: From `.claude-plugin/plugin.json` or `/plugin` menu
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Agent (neo / neo-shadow / keymaker / tank / architect / trinity / mouse / smith / switch / oracle / morpheus)
+        - Hook (brain-load / jail / spawn-guard / format / save-brain / stop-gate / brain-sync)
+        - Command (/neo:init / save / status / plan / review / map)
+        - Second brain files
+        - Templates
+        - Docs
+        - Other / not sure
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you do, what did you expect, what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Run /neo:init in a fresh repo
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant output
+      description: Hook stderr, agent report, or terminal output. Redact anything private.
+      render: shell
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      placeholder: "macOS 15 / Ubuntu 24.04 / Windows 11"

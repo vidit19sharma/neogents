@@ -1,0 +1,33 @@
+name: Feature request
+description: Propose an improvement to existing agents, hooks, commands, or the second brain.
+title: "[feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What friction are you hitting? Describe the situation, not the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How would you solve it? Which files would change?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches and why you rejected them.
+  - type: checkboxes
+    id: scope-check
+    attributes:
+      label: Scope check
+      description: NEO stays dependency-free and fail-open. Confirm your proposal fits.
+      options:
+        - label: This does not add a runtime dependency (Node.js, Python, npm packages, etc.)
+        - label: This does not require network access from hooks
+        - label: I checked docs/specs/ and this is not an explicit non-goal
