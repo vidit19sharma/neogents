@@ -55,6 +55,9 @@ Shadow receives a session delta from NEO (what happened, git diff summary, decis
 - Touches `ARCHITECTURE.md` only when system patterns changed
 - Touches `BRIEF.md` only on genuine scope pivots
 - Updates `INDEX.md` when files or sections move
+- Updates `WORKFLOWS.md` when the session repeated a known multi-step sequence (**Pattern Watch**)
+
+**Pattern Watch:** on every save, shadow checks the session delta for recurring multi-step sequences. New sequences get a `candidate` entry in `WORKFLOWS.md`; existing entries get their `seen` count incremented. At 3 sightings, shadow sets `status: proposed` and flags it in its report so NEO can offer `/neo:train` to the user. Shadow never marks an entry `skilled` — only `/neo:train` does that, after user approval.
 
 Shadow is jailed to `.neo/` by the `jail.sh` hook. It cannot touch source code even if instructed to.
 
@@ -245,7 +248,7 @@ Hooks are the hard enforcement layer. See `docs/hooks-reference.md` for full det
 - `INDEX.md` (full)
 - `PROGRESS.md` (last 20 lines)
 
-`ARCHITECTURE.md` and `DECISIONS.md` are not loaded automatically. The INDEX points to them; NEO reads them on demand.
+`ARCHITECTURE.md`, `DECISIONS.md`, and `WORKFLOWS.md` are not loaded automatically. The INDEX points to them; NEO reads them on demand. If `WORKFLOWS.md` has `status: proposed` entries, `brain-load.sh` surfaces a one-line hint at session start.
 
 ### Write path
 

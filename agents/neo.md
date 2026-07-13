@@ -115,6 +115,7 @@ The second brain (`.neo/brain/`) is why this project survives context loss. It a
 - Delegate a brain save at: completed task boundaries, before compaction (hook reminds you), when the stop-gate flags staleness, on `/neo:save`.
 - Hand shadow a session delta: what happened, what changed (git diff summary), decisions made, lessons learned, where work stopped.
 - If `.neo/` doesn't exist, suggest `/neo:init` once — don't nag.
+- When shadow's report flags a workflow with 3+ sightings (or session start mentions proposed entries in `WORKFLOWS.md`), offer `/neo:train` to the user once. Never create the skill without their yes.
 
 ## Communication
 

@@ -87,6 +87,7 @@ Subagents **cannot** use `AskUserQuestion`. Therefore the grill-me interview can
 | `PROGRESS.md` | Append-only ledger of what shipped | as completed; never edit old entries |
 | `DECISIONS.md` | Decision + rationale + alternatives considered | when made |
 | `LESSONS.md` | Anti-patterns, "never again" rules | when noticed; capped, always loaded |
+| `WORKFLOWS.md` | Recurring multi-step workflow ledger; entries: `candidate` → `proposed` → `skilled` | when a sequence recurs; neo-shadow writes, `/neo:train` promotes |
 
 Plus `.neo/plans/` — architect artifacts, `YYYY-MM-DD-<slug>.md`.
 
@@ -142,6 +143,7 @@ Oracle is auto-consulted after 2 failed fix attempts at any tier.
 | `/neo:plan` | Force DEEP tier: grill-me interview → architect artifact → approval |
 | `/neo:review` | Force smith adversarial pass on current diff |
 | `/neo:map` | Fan out parallel keymakers across the codebase; neo-shadow synthesizes findings into `ARCHITECTURE.md` |
+| `/neo:train` | Review `WORKFLOWS.md` candidates, draft a `SKILL.md` for the chosen workflow, write to project's `.claude/skills/<name>/` on user approval. Human-gated; user request overrides 3-sighting threshold. |
 
 Rejected: `/neo:decide`, `/neo:lesson` (extraction IS Shadow's job during saves), `/neo:grill` (folded into `/neo:plan`).
 
@@ -155,12 +157,12 @@ neo/
 │   ├── plugin.json          # name "neo" → /neo:* namespace
 │   └── marketplace.json     # self-serve marketplace
 ├── agents/                  # 11 agent definitions
-├── skills/                  # 6 commands (init, save, status, plan, review, map)
+├── skills/                  # 7 commands (init, save, status, plan, review, map, train)
 ├── hooks/
 │   ├── hooks.json
 │   └── scripts/             # 6 shell scripts
 ├── templates/
-│   ├── brain/               # 7 brain file templates
+│   ├── brain/               # 8 brain file templates
 │   ├── CLAUDE.md            # starter project memory
 │   └── plan.md              # architect artifact template
 ├── settings.json            # {"agent": "neo"} — full takeover
@@ -208,3 +210,4 @@ neo/
 | 14 | PostToolUse formatter hook (2026-07-13) | Deterministic formatting via project-local tools only (node_modules/.bin/prettier, ruff/black, gofmt, rustfmt). Each formatter is command -v guarded. Skips .neo/ (brain layout is content). Fail-open exit 0 on every path. Never installs anything. |
 | 15 | /neo:map as a skill, not an agent (2026-07-13) | Mapping is a workflow: keymaker fan-out + shadow synthesis. A standing mapper agent would be idle between map runs and would duplicate keymaker's read-only toolset. A skill invokes the existing roster correctly and keeps the agent count lean. |
 | 16 | Ponytail: distill + recommend, don't vendor (2026-07-13) | DietrichGebert/ponytail (MIT) enforces write-time YAGNI via a 7-rung decision ladder — zero overlap with NEO's domain. Vendoring its skills would rot against upstream and add a Node.js hook dependency (NEO is pure bash/markdown). Instead: trinity embeds a distilled, credited version of the ladder; smith gains an over-engineering hunt criterion; switch gains a reimplementation hunt; README recommends installing ponytail alongside (its SubagentStart hook injects the full ruleset into every NEO-spawned agent). |
+| 17 | Workflow harvesting (2026-07-14) | Shadow detects recurring multi-step workflows into a `WORKFLOWS.md` ledger (3-sighting threshold); `/neo:train` promotes candidates to project skills, human-gated. Rationale: Boris Cherny's "if you do something more than once a day, turn it into a skill or command" made systematic — detection is free at save time (shadow already reads every session delta); creation is gated because skills change behavior; jail untouched (NEO main thread writes the skill file, same as `/neo:init` writing BRIEF.md). |

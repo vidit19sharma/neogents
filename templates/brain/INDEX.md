@@ -11,6 +11,7 @@
 - [[PROGRESS]] — append-only ledger of what got done, dated. Never edited backwards.
 - [[DECISIONS]] — significant choices with rationale and rejected alternatives.
 - [[LESSONS]] — hard-won anti-patterns. "Never X — because Y." Always loaded; every line earns its place.
+- [[WORKFLOWS]] — recurring multi-step sequences spotted across sessions. Promoted to skills via /neo:train.
 
 ## Topic pages
 

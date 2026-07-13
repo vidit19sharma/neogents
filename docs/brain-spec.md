@@ -1,12 +1,12 @@
 # NEO Second Brain — Contract
 
-The second brain is a set of seven markdown files in `.neo/brain/`. Together they give every session a complete picture of the project without any LLM cost at load time. This document defines what each file is for, who writes it, when, and how the system loads and saves it.
+The second brain is a set of eight markdown files in `.neo/brain/`. Together they give every session a complete picture of the project without any LLM cost at load time. This document defines what each file is for, who writes it, when, and how the system loads and saves it.
 
 See also: [customization.md](customization.md) for tuning caps and sync behavior, [portability.md](portability.md) for the multi-harness roadmap.
 
 ---
 
-## The Seven Files
+## The Eight Files
 
 | File | Purpose | Update cadence |
 |---|---|---|
@@ -17,6 +17,7 @@ See also: [customization.md](customization.md) for tuning caps and sync behavior
 | `PROGRESS.md` | Append-only ledger of what shipped, dated. | As work completes. Never edit old entries. |
 | `DECISIONS.md` | Significant choices with rationale and rejected alternatives. | When a decision is made that will still matter in a month. |
 | `LESSONS.md` | Anti-patterns learned the hard way. Always loaded; every line pays rent. | When a mistake teaches something reusable. |
+| `WORKFLOWS.md` | Ledger of recurring multi-step workflows. Entries progress through `candidate` → `proposed` → `skilled`. Written by neo-shadow at save time; promoted to project skills by `/neo:train` after user approval. | When a multi-step sequence recurs across sessions. |
 
 ---
 
@@ -65,6 +66,15 @@ See also: [customization.md](customization.md) for tuning caps and sync behavior
 - Facts live in exactly one file. `INDEX.md` points to them; it never summarizes or copies them.
 - The `topics/` subdirectory is the graph-export escape hatch: when a subject outgrows its section in `ARCHITECTURE.md` or `DECISIONS.md`, neo-shadow extracts it to `.neo/brain/topics/<name>.md` and links it from `INDEX.md`. This structure is compatible with graph tools that consume `[[wiki-links]]` (e.g., Obsidian, graphify) without depending on any of them.
 
+### WORKFLOWS.md — workflow harvesting ledger
+
+- Written by neo-shadow at save time when the session delta contains a recurring multi-step sequence.
+- Entry format: `## candidate: <kebab-name>` with `steps`, `trigger`, `seen` count, and `status`.
+- **Status lifecycle:** `candidate` (below 3 sightings) → `proposed` (3+ sightings; neo-shadow flags it in its report) → `skilled` (promoted to `.claude/skills/<name>/` via `/neo:train`).
+- neo-shadow never marks an entry `skilled` itself. Only `/neo:train` does that, after the user approves the drafted skill.
+- A user request to train a specific workflow overrides the 3-sighting threshold.
+- Loaded on demand (not at session start), but `brain-load.sh` surfaces a one-line hint when `proposed` entries exist.
+
 ---
 
 ## Load Path (Zero LLM Cost)
@@ -86,9 +96,12 @@ PROGRESS.md     (tail -n 20 only)
 ```
 ARCHITECTURE.md   — read when patterns are relevant; INDEX tells you what's there
 DECISIONS.md      — read when a past decision is relevant; INDEX tells you what's there
+WORKFLOWS.md      — read when reviewing workflow candidates or running /neo:train
 ```
 
-The session context includes a note: "ARCHITECTURE.md and DECISIONS.md live in `.neo/brain/` — consult INDEX above for what they hold." NEO reads them when needed; it doesn't load them speculatively.
+The session context includes a note: "ARCHITECTURE.md, DECISIONS.md, and WORKFLOWS.md live in `.neo/brain/` — consult INDEX above for what they hold." NEO reads them when needed; it doesn't load them speculatively.
+
+**Proposed-workflow hint:** if `WORKFLOWS.md` contains any entry with `status: proposed`, `brain-load.sh` surfaces a one-line hint at session start: `[neo] WORKFLOWS.md has proposed entries — recurring workflows ready for /neo:train.` NEO offers `/neo:train` once when it sees this; it never creates the skill without user approval.
 
 **If `.neo/brain/` doesn't exist**, `brain-load.sh` prints one quiet hint: "No second brain in this project. Run `/neo:init` to create one." Then exits cleanly.
 
@@ -105,7 +118,7 @@ Brain writes are the highest-leverage tokens in the system. A wrong lesson poiso
 1. NEO assembles a **session delta**: what happened, what changed (git diff summary), decisions made, mistakes hit, where work stopped, what comes next.
 2. NEO spawns **neo-shadow** with the delta as context.
 3. neo-shadow reads the current brain files before writing anything (never overwrites context it hasn't read).
-4. neo-shadow writes: rewrites `ACTIVE.md`, appends `PROGRESS.md`, updates `DECISIONS.md`/`LESSONS.md` only if the delta earns it, touches `ARCHITECTURE.md` only on pattern changes, `BRIEF.md` only on pivots.
+4. neo-shadow writes: rewrites `ACTIVE.md`, appends `PROGRESS.md`, updates `DECISIONS.md`/`LESSONS.md` only if the delta earns it, touches `ARCHITECTURE.md` only on pattern changes, `BRIEF.md` only on pivots, and updates `WORKFLOWS.md` when the session repeated a known multi-step sequence.
 5. neo-shadow reports which files changed and flags anything contradictory for NEO to resolve with the user.
 
 **NEO never writes brain files itself.** Judgment about what to remember is neo-shadow's job.
