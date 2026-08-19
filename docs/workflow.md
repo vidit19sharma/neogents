@@ -94,12 +94,14 @@ File edited
      v
 Context approaches compaction limit
      |
-[PreCompact] save-brain.sh fires
-     |  injects: "Save the brain NOW before compaction discards session detail"
-     |  NEO assembles session delta and spawns neo-shadow
+[PreCompact] checkpoint.sh fires
+     |  deterministic snapshot: branch, HEAD, git status, diff stat,
+     |  last assistant message -> .neo/CHECKPOINT.md (no LLM involved)
      |
      v
 NEO finishes responding
+     |
+[Stop] checkpoint.sh fires (throttled: one write per 10 min)
      |
 [Stop] stop-gate.sh fires
      |  checks: code dirty outside .neo/ AND brain clean inside .neo/brain/
@@ -229,8 +231,9 @@ The brain lives in `.neo/brain/` as eight plain markdown files. It's yours. Noth
 | `ARCHITECTURE.md` | System patterns, module relationships, stack, gotchas | When patterns change |
 | `INDEX.md` | Map of all brain content with `[[wiki-links]]` | When structure changes |
 | `WORKFLOWS.md` | Recurring multi-step workflows; `candidate` → `proposed` → `skilled` | When a sequence recurs (3-sighting threshold); promoted via `/neo:train` |
+| `FRICTION.md` | Append-only evidence ledger of corrections, review blocks, and escalations (`[F-NNN]` stable IDs) | When the delta contains a user correction, smith BLOCK, 2-fail escalation, or revert after approval |
 
-Plans live separately in `.neo/plans/YYYY-MM-DD-<slug>.md`.
+Plans live separately in `.neo/plans/YYYY-MM-DD-<slug>.md`. Subagent spawns are auto-logged by a hook to `.neo/runs/YYYY-MM-DD.md` (agent, task, verdict, summary — long reports get their own file). `.neo/CHECKPOINT.md` is a machine-written snapshot of git state from the last Stop or compaction; newest wins, safe to delete.
 
 ### What loads at session start
 
@@ -244,14 +247,14 @@ INDEX.md        full
 PROGRESS.md     last 20 lines only
 ```
 
-`ARCHITECTURE.md`, `DECISIONS.md`, and `WORKFLOWS.md` are not loaded automatically. The INDEX points to them; NEO reads them on demand when they're relevant. If `WORKFLOWS.md` has any `status: proposed` entries, `brain-load.sh` surfaces a one-line hint at session start so NEO can offer `/neo:train`.
+`ARCHITECTURE.md`, `DECISIONS.md`, `WORKFLOWS.md`, and `FRICTION.md` are not loaded automatically. The INDEX points to them; NEO reads them on demand when they're relevant. If `WORKFLOWS.md` has any `status: proposed` entries, `brain-load.sh` surfaces a one-line hint at session start so NEO can offer `/neo:train`. If `.neo/CHECKPOINT.md` is fresh (under an hour old), `brain-load.sh` cats it too.
 
 ### When saves happen
 
 | Trigger | Mechanism |
 |---|---|
 | Task boundary | NEO assembles delta, spawns neo-shadow |
-| Before compaction | `save-brain.sh` injects reminder; NEO acts on it |
+| Before compaction | `checkpoint.sh` writes a deterministic snapshot to `.neo/CHECKPOINT.md` |
 | Stop-gate fires | Gate names what to do; NEO spawns neo-shadow or user runs `/neo:save` |
 | `/neo:save` command | NEO assembles delta, spawns neo-shadow |
 | Session end | `brain-sync.sh` commits `.neo/brain/` to git automatically |
@@ -284,6 +287,8 @@ Create `.neo/no-auto-commit` in your project root. The file's presence is the si
 | `/neo:map` | When adopting NEO in a mature codebase, or when `ARCHITECTURE.md` is empty or stale |
 | `/neo:train` | When neo-shadow flags a proposed workflow (or you want to turn any recurring sequence into a skill); shows a draft for approval before writing anything |
 | `/neo:gc` | When `/neo:status` flags lesson rot — scans for dead anchors and aged entries, then neo-shadow keeps / rewrites / archives only the flagged ones |
+| `/neo:recall` | "Did we already solve this?" / "When did we decide X?" — greps `.neo/brain`, `.neo/plans`, and `.neo/runs`, returns `file:line` pointers |
+| `/neo:evolve` | When `FRICTION.md` has accumulated recurring patterns — proposes ONE bounded, human-approved edit to an agent prompt, skill, or template (never hooks or CI) |
 
 ### /neo:status in detail
 
@@ -329,7 +334,7 @@ Each agent's frontmatter lists exactly the tools it may use. Leaf agents (every 
 | `spawn-guard.sh` (PreToolUse / Agent\|Task) | Spawns of agents not in the NEO roster | 2 (with roster list) |
 | `stop-gate.sh` (Stop) | Session completion when code changed but brain wasn't updated | 2 (one-shot; lets through on second attempt) |
 
-`format.sh` (PostToolUse) and `brain-sync.sh` (SessionEnd) are not blocking hooks. They exit 0 on every path.
+`format.sh` (PostToolUse), `run-ledger.sh` (PostToolUse on Agent|Task), `checkpoint.sh` (PreCompact + Stop), and `brain-sync.sh` (SessionEnd) are not blocking hooks. They exit 0 on every path.
 
 ### Fail-open policy
 

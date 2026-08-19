@@ -1,12 +1,12 @@
 # NEO Second Brain — Contract
 
-The second brain is a set of eight markdown files in `.neo/brain/`. Together they give every session a complete picture of the project without any LLM cost at load time. This document defines what each file is for, who writes it, when, and how the system loads and saves it.
+The second brain is a set of nine markdown files in `.neo/brain/`. Together they give every session a complete picture of the project without any LLM cost at load time. This document defines what each file is for, who writes it, when, and how the system loads and saves it.
 
 See also: [customization.md](customization.md) for tuning caps and sync behavior, [portability.md](portability.md) for the multi-harness roadmap.
 
 ---
 
-## The Eight Files
+## The Nine Files
 
 | File | Purpose | Update cadence |
 |---|---|---|
@@ -18,6 +18,7 @@ See also: [customization.md](customization.md) for tuning caps and sync behavior
 | `DECISIONS.md` | Significant choices with rationale and rejected alternatives. | When a decision is made that will still matter in a month. |
 | `LESSONS.md` | Anti-patterns learned the hard way. Always loaded; every line pays rent. | When a mistake teaches something reusable. |
 | `WORKFLOWS.md` | Ledger of recurring multi-step workflows. Entries progress through `candidate` → `proposed` → `skilled`. Written by neo-shadow at save time; promoted to project skills by `/neo:train` after user approval. | When a multi-step sequence recurs across sessions. |
+| `FRICTION.md` | Append-only evidence ledger of corrections, review blocks, and escalations. Stable `[F-NNN]` IDs. Evidence for improving NEO itself via `/neo:evolve`. | When the session delta contains a user correction, a smith BLOCK, a 2-fail escalation, or a revert after approval. |
 
 ---
 
@@ -69,6 +70,14 @@ See also: [customization.md](customization.md) for tuning caps and sync behavior
 - Facts live in exactly one file. `INDEX.md` points to them; it never summarizes or copies them.
 - The `topics/` subdirectory is the graph-export escape hatch: when a subject outgrows its section in `ARCHITECTURE.md` or `DECISIONS.md`, neo-shadow extracts it to `.neo/brain/topics/<name>.md` and links it from `INDEX.md`. This structure is compatible with graph tools that consume `[[wiki-links]]` (e.g., Obsidian, graphify) without depending on any of them.
 
+### FRICTION.md — append-only evidence ledger
+
+- Entry format: `- [F-NNN] YYYY-MM-DD <what happened> → cause: <one line> → component: <file it implicates>`.
+- Stable IDs, never renumbered. Next ID = highest existing + 1.
+- The component anchor names the NEO piece (agent prompt, skill, template) whose change would have prevented the friction — not the code that broke.
+- Append-only. Never edited, never rewritten. When enough entries implicate the same component, that's the evidence for changing it via `/neo:evolve`.
+- Loaded on demand, not at session start.
+
 ### WORKFLOWS.md — workflow harvesting ledger
 
 - Written by neo-shadow at save time when the session delta contains a recurring multi-step sequence.
@@ -100,7 +109,10 @@ PROGRESS.md     (tail -n 20 only)
 ARCHITECTURE.md   — read when patterns are relevant; INDEX tells you what's there
 DECISIONS.md      — read when a past decision is relevant; INDEX tells you what's there
 WORKFLOWS.md      — read when reviewing workflow candidates or running /neo:train
+FRICTION.md       — read when running /neo:evolve or investigating recurring failures
 ```
+
+**Checkpoint:** if `.neo/CHECKPOINT.md` exists and is less than an hour old, `brain-load.sh` cats it too. It's a machine-written snapshot from the last session's Stop or PreCompact hook (branch, git status, diff stat, last assistant message) — a crash recovery aid, not part of the curated brain. Newest wins; safe to delete.
 
 The session context includes a note: "ARCHITECTURE.md, DECISIONS.md, and WORKFLOWS.md live in `.neo/brain/` — consult INDEX above for what they hold." NEO reads them when needed; it doesn't load them speculatively.
 
@@ -121,16 +133,17 @@ Brain writes are the highest-leverage tokens in the system. A wrong lesson poiso
 1. NEO assembles a **session delta**: what happened, what changed (git diff summary), decisions made, mistakes hit, where work stopped, what comes next.
 2. NEO spawns **neo-shadow** with the delta as context.
 3. neo-shadow reads the current brain files before writing anything (never overwrites context it hasn't read).
-4. neo-shadow writes: rewrites `ACTIVE.md`, appends `PROGRESS.md`, updates `DECISIONS.md`/`LESSONS.md` only if the delta earns it, touches `ARCHITECTURE.md` only on pattern changes, `BRIEF.md` only on pivots, and updates `WORKFLOWS.md` when the session repeated a known multi-step sequence.
+4. neo-shadow writes: rewrites `ACTIVE.md`, appends `PROGRESS.md`, updates `DECISIONS.md`/`LESSONS.md` only if the delta earns it, touches `ARCHITECTURE.md` only on pattern changes, `BRIEF.md` only on pivots, updates `WORKFLOWS.md` when the session repeated a known multi-step sequence, and appends `FRICTION.md` when the delta contains a correction, review block, or escalation.
 5. neo-shadow reports which files changed and flags anything contradictory for NEO to resolve with the user.
 
 **NEO never writes brain files itself.** Judgment about what to remember is neo-shadow's job.
 
 **When saves happen:**
 - Completed task boundaries
-- Before compaction (`save-brain.sh` injects a reminder into context)
 - When the stop-gate flags a stale brain
 - On `/neo:save` (manual)
+
+Separately from curated saves, `checkpoint.sh` snapshots git state and the last assistant message to `.neo/CHECKPOINT.md` on PreCompact and on throttled Stop — deterministic, no LLM involved. It's the safety net for compaction and abrupt endings; the curated brain remains the source of truth.
 
 **Compaction awareness:** the starter `CLAUDE.md` ships a `## Compact Instructions` section that Claude Code injects into every compaction prompt. It tells compaction to preserve current focus, open todos, and unverified changes, and to treat `.neo/brain/` as the source of truth instead of restating it. Combined with `brain-load.sh` re-firing after compaction (SessionStart has no source matcher), the brain survives compaction on both sides: guidance going in, auto-reload coming out.
 

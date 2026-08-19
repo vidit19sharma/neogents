@@ -66,7 +66,8 @@ Open the relevant script and change it. The scripts are plain bash with no build
 | `jail.sh` | PreToolUse (Edit/Write) | Blocks neo-shadow and architect from writing outside their jails. | Carefully — weakening this removes a hard safety guarantee. |
 | `spawn-guard.sh` | PreToolUse (Agent) | Blocks spawns of agents not in the NEO roster. | Yes, when adding roster agents (see below). |
 | `format.sh` | PostToolUse (Edit/Write) | Formats the just-edited file with project-local formatters. Fail-open. | Yes — add formatters, adjust file extensions. |
-| `save-brain.sh` | PreCompact | Injects a reminder to save the brain before compaction. | Yes — adjust the message. |
+| `checkpoint.sh` | PreCompact + Stop | Deterministic snapshot of git state and the last assistant message to `.neo/CHECKPOINT.md`. Throttled on Stop (10 min). | Yes — adjust throttle, sections, sizes. |
+| `run-ledger.sh` | PostToolUse (Agent/Task) | Appends every subagent spawn (agent, task, verdict, summary) to `.neo/runs/YYYY-MM-DD.md`; long reports get their own file. | Yes — adjust thresholds, entry format. |
 | `stop-gate.sh` | Stop | Blocks session end when code changed but brain wasn't saved. | Yes — adjust the staleness logic. |
 | `brain-sync.sh` | SessionEnd | Commits `.neo/brain/` to git. | Yes — adjust commit message, add push, etc. |
 | `brain-gc.sh` | (none — helper) | Deterministic staleness scan of `LESSONS.md`; invoked by `/neo:gc` and `/neo:status`, not by hooks.json. | Yes — adjust flag rules, age threshold. |

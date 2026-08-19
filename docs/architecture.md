@@ -215,12 +215,25 @@ Hooks are the hard enforcement layer. See `docs/hooks-reference.md` for full det
 - architect may only write under `.neo/plans/`
 - All other agents and the main thread pass through
 - Exit 2 blocks the write and feeds the error message back to the agent as corrective feedback
+- Symlink hardening: refuses to write through symlinks and verifies the physical parent path (`pwd -P`) resolves inside the jail when it can be resolved
 - Fail-open by design: if `agent_type` is absent from the payload or `jq` is missing, the hook allows rather than breaking every write in the session
 
 **Spawn guard (`spawn-guard.sh`, PreToolUse on Agent|Task):**
 - Blocks spawns of agents not in the NEO roster
 - Defense-in-depth: the structural guarantee (no `Agent` tool on leaves) is the primary control; this guard catches roster drift from the main thread
 - Fail-open: unrecognized payload shapes are allowed through
+
+**Checkpoint (`checkpoint.sh`, PreCompact + Stop):**
+- Deterministically snapshots branch, HEAD, `git status --short`, `git diff --stat`, and the last assistant message to `.neo/CHECKPOINT.md`
+- Always writes on PreCompact; throttled to one write per 10 minutes on Stop
+- Zero LLM tokens; `brain-load.sh` re-injects the snapshot at the next session start when it is less than an hour old
+- Never blocks (exits 0 on every path)
+
+**Run ledger (`run-ledger.sh`, PostToolUse on Agent|Task):**
+- Appends every subagent spawn to `.neo/runs/YYYY-MM-DD.md`: agent, task description, `VERDICT` line if present, first line of the response
+- Responses over 1500 characters get their own report file with a pointer from the ledger
+- Makes parallel work inspectable and recoverable — `/neo:recall` greps this ledger
+- Never blocks (exits 0 on every path)
 
 **Stop gate (`stop-gate.sh`, Stop):**
 - One-shot: blocks completion once when code changed but the brain was not updated
@@ -250,11 +263,15 @@ Hooks are the hard enforcement layer. See `docs/hooks-reference.md` for full det
 - `INDEX.md` (full)
 - `PROGRESS.md` (last 20 lines)
 
-`ARCHITECTURE.md`, `DECISIONS.md`, and `WORKFLOWS.md` are not loaded automatically. The INDEX points to them; NEO reads them on demand. If `WORKFLOWS.md` has `status: proposed` entries, `brain-load.sh` surfaces a one-line hint at session start.
+`ARCHITECTURE.md`, `DECISIONS.md`, `WORKFLOWS.md`, and `FRICTION.md` are not loaded automatically. The INDEX points to them; NEO reads them on demand. If `WORKFLOWS.md` has `status: proposed` entries, `brain-load.sh` surfaces a one-line hint at session start. If `.neo/CHECKPOINT.md` is fresh (less than an hour old), `brain-load.sh` cats it too — a deterministic snapshot from the last session's end or compaction.
 
 ### Write path
 
-NEO assembles a session delta and spawns neo-shadow. Shadow rewrites `ACTIVE.md`, appends to `PROGRESS.md`, and updates other files only when the delta warrants it. One source of truth: pointers, never copies between files.
+NEO assembles a session delta and spawns neo-shadow. Shadow rewrites `ACTIVE.md`, appends to `PROGRESS.md`, and updates other files only when the delta warrants it — including appending to `FRICTION.md` when the delta contains a user correction, a smith BLOCK, a failed-fix escalation, or a revert after approval. One source of truth: pointers, never copies between files.
+
+### Recall and evolve
+
+`/neo:recall` greps `.neo/brain`, `.neo/plans`, and `.neo/runs` for past decisions and subagent work, returning `file:line` pointers — cheaper than re-running recon. `/neo:evolve` reads `FRICTION.md`, clusters recurring patterns, and proposes ONE bounded, human-approved edit to an agent prompt, skill, or template. It may never touch `hooks/` or CI: enforcement stays outside the loop it enforces.
 
 ### Sync
 

@@ -23,8 +23,9 @@ Any other non-zero exit code is treated as an error in the hook itself, not a bl
 | `PreToolUse` | `Edit\|Write\|NotebookEdit` | `jail.sh` | Hard blocks out-of-jail writes for neo-shadow and architect. |
 | `PreToolUse` | `Agent\|Task` | `spawn-guard.sh` | Blocks spawns of agents not in the NEO roster. |
 | `PostToolUse` | `Edit\|Write\|NotebookEdit` | `format.sh` | Formats the just-edited file with project-local formatters. Fail-open. |
-| `PreCompact` | (all) | `save-brain.sh` | Injects a "save brain NOW" reminder before compaction. |
-| `Stop` | (all) | `stop-gate.sh` | One-shot block when code changed but brain was not updated. |
+| `PostToolUse` | `Agent\|Task` | `run-ledger.sh` | Appends every subagent spawn to a daily run ledger in `.neo/runs/`. |
+| `PreCompact` | (all) | `checkpoint.sh` | Deterministic snapshot of git state + last assistant message to `.neo/CHECKPOINT.md`. |
+| `Stop` | (all) | `checkpoint.sh`, then `stop-gate.sh` | Snapshot (throttled to one per 10 min), then a one-shot block when code changed but brain was not updated. |
 | `SessionEnd` | (all) | `brain-sync.sh` | Auto-commits `.neo/brain/` to git. |
 
 ---
@@ -46,8 +47,9 @@ Runs at the start of every session. stdout from a `SessionStart` hook is injecte
    - `INDEX.md` (full)
    - `PROGRESS.md` (last 20 lines via `tail -n 20`)
 3. Prints a note that `ARCHITECTURE.md` and `DECISIONS.md` live in the brain directory and should be consulted via INDEX pointers.
-4. If `graphify` is on PATH and `graph.json` exists in the project root, prints: `[neo] graphify detected with graph.json — prefer 'graphify query/path/explain' over broad grep for cross-file questions.`
-5. Exits 0.
+4. If `.neo/CHECKPOINT.md` exists and is fresh (written in the last 60 minutes), cats it under a `CHECKPOINT.md (deterministic snapshot from last session)` header — so in-flight state written by `checkpoint.sh` survives compaction and abrupt session ends.
+5. If `graphify` is on PATH and `graph.json` exists in the project root, prints: `[neo] graphify detected with graph.json — prefer 'graphify query/path/explain' over broad grep for cross-file questions.`
+6. Exits 0.
 
 **Cost:** zero LLM tokens. Pure shell `cat`.
 
@@ -79,7 +81,8 @@ Enforces write path restrictions for neo-shadow and architect. All other agents 
 6. Extracts the target file path from `tool_input.file_path` or `tool_input.notebook_path`.
 7. Normalizes the path to be relative to the session `cwd`.
 8. Rejects any path containing `..` segments before the prefix check (traversal prevention).
-9. Checks the normalized path against the agent's allowed prefix. If it matches, exits 0. If not, prints to stderr and exits 2.
+9. Checks the normalized path against the agent's allowed prefix. If it doesn't match, prints to stderr and exits 2.
+10. **Symlink hardening:** even when the prefix matches, refuses to write through a symlink (`-L` check on the target), and — when the parent directory resolves — verifies the physical path (`pwd -P`) still lands inside `.neo/`. A pre-existing symlink under `.neo/` pointing outside the repo can no longer smuggle a write out of the jail. Both checks fail open if the paths cannot be resolved.
 
 **stderr on block:**
 ```
@@ -147,24 +150,53 @@ Runs immediately after any file edit. Formats the just-written file using projec
 
 ---
 
-## save-brain.sh
+## run-ledger.sh
 
-**Event:** `PreCompact`
-**Script:** `hooks/scripts/save-brain.sh`
+**Event:** `PostToolUse`
+**Matcher:** `Agent|Task`
+**Script:** `hooks/scripts/run-ledger.sh`
 
-Fires before Claude Code compacts the context window. stdout from a `PreCompact` hook is injected as context ahead of compaction.
+Appends every subagent spawn to a daily run ledger. Subagent outputs that only live in a transient chat context become obsolete and hidden; the ledger makes execution history greppable across sessions.
 
 **Behavior:**
 
-1. Checks for `.neo/brain/`. If absent, exits 0 silently.
-2. Prints to stdout:
-   ```
-   [neo] Context is about to compact. Session detail (decisions, gotchas, in-flight state) will be lost from the transcript.
-   Save the brain NOW: assemble the session delta and spawn neo-shadow (or run /neo:save) BEFORE continuing other work.
-   ```
-3. Exits 0.
+1. Exits 0 unless `.neo/` exists and `jq` is present.
+2. Extracts the agent name (`tool_input.subagent_type`), the task description (first 120 chars), and the response text (handles string, array-of-blocks, and object payload shapes).
+3. Appends to `.neo/runs/YYYY-MM-DD.md`:
+   - `## HH:MM:SS <agent> — <description>`
+   - the report's `VERDICT:` line when present
+   - the first non-empty line of the response (first 200 chars)
+4. When the response exceeds 1500 chars, writes the full text to `.neo/runs/YYYY-MM-DD-HHMMSS-<agent>-<pid>.md` and appends a `full report:` pointer. The pid suffix keeps same-second parallel spawns from clobbering each other.
+5. Exits 0 on every path.
 
-This is a reminder, not a block. The agent sees the message and is expected to act on it before compaction discards session detail.
+`/neo:recall` greps this ledger alongside the brain and plans.
+
+**Cost:** zero LLM tokens. Pure shell append.
+
+---
+
+## checkpoint.sh
+
+**Event:** `Stop` and `PreCompact`
+**Script:** `hooks/scripts/checkpoint.sh`
+
+Deterministic session snapshot. Replaces the old advisory "save the brain now" reminder (`save-brain.sh`) — a script's job is done by a script, not by asking an LLM to remember. PreCompact cannot pause compaction, so an advisory fired there was always too late; a deterministic write is not.
+
+**Behavior:**
+
+1. Exits 0 unless `.neo/` exists and the cwd is a git work tree.
+2. Reads `hook_event_name` and `last_assistant_message` from the payload (fail-open without `jq`).
+3. **Throttle:** on `Stop`, skips if `.neo/CHECKPOINT.md` was written in the last 10 minutes. `PreCompact` always writes.
+4. Writes `.neo/CHECKPOINT.md` atomically (newest wins, safe to delete):
+   - when / event / branch / HEAD
+   - `## Uncommitted files` — `git status --short` (first 100 lines)
+   - `## Diff stat (vs HEAD)` — `git diff HEAD --stat` (last 40 lines)
+   - `## Last assistant message` — first 4000 chars, when present
+5. Exits 0 on every path.
+
+`brain-load.sh` re-injects the checkpoint at the next session start while it is fresh (<60 min), so in-flight state survives auto-compaction and abrupt session ends without a single LLM token spent saving it.
+
+**Cost:** zero LLM tokens. Pure shell.
 
 ---
 
