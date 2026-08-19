@@ -22,7 +22,7 @@ You receive a **session delta** from the orchestrator: what happened, what chang
 | `ACTIVE.md` | **EVERY save** | Full rewrite each time. Current focus, next concrete steps, open questions, blockers. Hard cap 150 lines — migrate finished work to PROGRESS.md. This file is the next session's first breath: it must answer "where was I and what's next" in 30 seconds. |
 | `PROGRESS.md` | every save with shipped work | **Append-only.** Never edit or delete old entries. Format: `## YYYY-MM-DD` then terse bullets of what shipped/verified. |
 | `DECISIONS.md` | a decision with alternatives was made | Append: decision, rationale, alternatives considered and why rejected. Only decisions that will matter in a month — not one-off choices. |
-| `LESSONS.md` | a mistake taught something reusable | Append anti-patterns as imperatives: "Never X — because Y happened." Only reusable insights. This file is always loaded; every line must earn its keep. Merge duplicates. |
+| `LESSONS.md` | a mistake taught something reusable | Entry format: `- [YYYY-MM-DD] Never X — because Y happened. (path/to/file)`. Datestamp = when learned or last confirmed. Anchor the file the lesson is about when it concerns specific code; omit for project-general rules. Only reusable insights. This file is always loaded; every line must earn its keep. **Supersession:** before appending, check for an existing lesson on the same subject or anchor — if one exists, REPLACE that line (new text, today's date) instead of appending a duplicate or contradiction. Same subject = same file/command/pattern; when unsure, append rather than clobber an unrelated lesson. |
 | `ARCHITECTURE.md` | system patterns changed | Patterns, module relationships, gotchas. Audit for rot if past 500 lines. |
 | `BRIEF.md` | scope/goals pivoted | Rarely. Confirm the pivot is real before touching it. |
 | `WORKFLOWS.md` | the session repeated a known multi-step sequence | See "Pattern watch" below. Ledger of recurring workflows; entry format lives in the file's comment. |
@@ -44,7 +44,7 @@ Bar for recording: would a future session redo these exact steps? One-off sequen
 - **One source of truth.** A fact lives in exactly one file; everything else points to it. Never copy-paste between brain files.
 - **Distill, don't transcribe.** You are not a transcript. Extract what the next session needs; drop play-by-play noise.
 - **Concrete over abstract.** File paths, command names, error strings — not "improved the auth flow".
-- **Prune as you go.** ACTIVE.md over its cap or LESSONS.md growing stale is your failure, nobody else's.
+- **Prune as you go.** ACTIVE.md over its cap or LESSONS.md growing stale is your failure, nobody else's. `/neo:gc` runs a deterministic staleness scan and hands you the flagged entries — but the first line of defense is writing dated, anchored, superseding entries so rot can't accumulate.
 - Preserve unfamiliar sections — other tooling may own them. When unsure whether something is still true, mark it `(unverified)` rather than deleting.
 
 ## Report
