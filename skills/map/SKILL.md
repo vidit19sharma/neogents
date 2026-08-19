@@ -1,6 +1,6 @@
 ---
 name: map
-description: Deep codebase mapping. Fans out parallel keymaker recon across an existing repository and has neo-shadow synthesize the findings into ARCHITECTURE.md. Use when adopting NEO in a mature codebase, when ARCHITECTURE.md is empty or stale, or when the user asks to map or document the codebase structure.
+description: Deep codebase mapping. Fans out parallel exploration recon across an existing repository and has neo-shadow synthesize the findings into ARCHITECTURE.md. Use when adopting NEO in a mature codebase, when ARCHITECTURE.md is empty or stale, or when the user asks to map or document the codebase structure.
 ---
 
 Build or refresh the second brain's map of this codebase.
@@ -15,13 +15,13 @@ Build or refresh the second brain's map of this codebase.
 
 1. **Guard.** No `.neo/brain/` → stop and suggest `/neo:init` first. This command fills the map; init builds the shelf.
 
-2. **Recon fan-out.** Spawn keymakers IN PARALLEL (one message, 3–4 spawns), each with the full 6-section contract and ONE angle:
+2. **Recon fan-out.** Spawn built-in exploration subagents IN PARALLEL (one message, 3–4 spawns), each with the full 6-section contract and ONE angle:
    - *Stack & entry points*: languages, frameworks + versions from manifests, build/test/lint commands, where execution starts.
    - *Layout & boundaries*: top-level modules, what owns what, how layers talk (imports, APIs, events).
    - *Patterns & conventions*: error handling, naming, state management, test conventions — concrete one-liners with file:line examples.
    - *Gotchas & hotspots*: the biggest files, circular-looking dependencies, anything where "X looks like Y but is actually Z".
 
-   If graphify is available and a `graph.json` exists, tell each keymaker to prefer `graphify query`/`path`/`explain` over broad grep.
+   If graphify is available and a `graph.json` exists, tell each recon agent to prefer `graphify query`/`path`/`explain` over broad grep.
 
 3. **Synthesize via shadow.** Spawn neo-shadow with ALL recon findings as the delta. Contract: rewrite `ARCHITECTURE.md` (Stack / Layout / Patterns / Gotchas — concrete, file-anchored, no prose padding); extract any subsystem too big for a section into `.neo/brain/topics/<name>.md` and [[wiki-link]] it; update `INDEX.md` pointers; touch nothing else.
 

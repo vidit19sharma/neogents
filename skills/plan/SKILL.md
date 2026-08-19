@@ -1,9 +1,9 @@
 ---
 name: plan
-description: Run the DEEP planning flow — relentless requirements interview, then architect produces a reviewable plan artifact in .neo/plans/. Use for new features, ambiguous scope, architectural changes, or when the user says "plan this" or "let's think this through".
+description: Run the DEEP planning flow — relentless requirements interview, then a reviewable plan artifact in .neo/plans/. Use for new features, ambiguous scope, architectural changes, or when the user says "plan this" or "let's think this through".
 ---
 
-# /neo:plan — interview, then architect
+# /neo:plan — interview, then plan artifact
 
 ## Phase 1 — Interview (main thread, you)
 
@@ -12,16 +12,16 @@ Interview the user relentlessly about this work until you reach shared understan
 Rules:
 - ONE question at a time. Never a questionnaire.
 - For every question, lead with your recommended answer and why.
-- If the codebase can answer it, explore (spawn keymaker) instead of asking.
+- If the codebase can answer it, explore it yourself (or fan out built-in exploration subagents) instead of asking.
 - Consult `.neo/brain/DECISIONS.md` and `BRIEF.md` first — never re-ask what's already decided.
 - Keep going until goal, scope, non-goals, constraints, and every fork in the road are resolved. "I don't know" from the user = you propose, they confirm.
 
-## Phase 2 — Architect (fresh context)
+## Phase 2 — Plan artifact (you)
 
-Spawn **architect** with the 6-section contract. CONTEXT must carry: the full interview transcript (decisions + rationale), relevant brain excerpts, and file paths keymaker surfaced. EXPECTED OUTCOME: plan artifact at `.neo/plans/YYYY-MM-DD-<slug>.md` — goal, non-goals, inherited decisions, task graph, waves, per-task files/do/verify/agent, risks. MUST NOT: write anywhere else, relitigate interview decisions, leave open questions unstated.
+Write the plan artifact yourself to `.neo/plans/YYYY-MM-DD-<slug>.md`, following `templates/plan.md`: goal, non-goals, inherited decisions, task graph, waves, per-task files/do/verify/agent, risks. Carry the interview decisions and rationale into it — do not relitigate them, and do not leave open questions unstated.
 
 ## Phase 3 — Approval gate
 
-Read the artifact. Present the plan summary: goal, wave schedule, task count, risks. If the architect left open questions, resolve them with the user and send the architect back (same context) before proceeding.
+Present the plan summary: goal, wave schedule, task count, risks. Resolve any remaining open questions with the user and update the artifact before proceeding.
 
-**Do not execute until the user approves the plan.** On approval, execute wave by wave: trinity per task (fresh context each), smith after the final wave, oracle on repeated failures.
+**Do not execute until the user approves the plan.** On approval, execute wave by wave: trinity per task (fresh context each, tests included), smith after the final wave. After two failed fixes on the same problem, stop and re-derive from scratch per the failure protocol.
