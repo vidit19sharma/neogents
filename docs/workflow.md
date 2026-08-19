@@ -283,6 +283,7 @@ Create `.neo/no-auto-commit` in your project root. The file's presence is the si
 | `/neo:review` | Before merging, after finishing a feature, or any time you want smith's adversarial pass |
 | `/neo:map` | When adopting NEO in a mature codebase, or when `ARCHITECTURE.md` is empty or stale |
 | `/neo:train` | When neo-shadow flags a proposed workflow (or you want to turn any recurring sequence into a skill); shows a draft for approval before writing anything |
+| `/neo:gc` | When `/neo:status` flags lesson rot — scans for dead anchors and aged entries, then neo-shadow keeps / rewrites / archives only the flagged ones |
 
 ### /neo:status in detail
 

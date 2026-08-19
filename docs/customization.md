@@ -69,6 +69,7 @@ Open the relevant script and change it. The scripts are plain bash with no build
 | `save-brain.sh` | PreCompact | Injects a reminder to save the brain before compaction. | Yes — adjust the message. |
 | `stop-gate.sh` | Stop | Blocks session end when code changed but brain wasn't saved. | Yes — adjust the staleness logic. |
 | `brain-sync.sh` | SessionEnd | Commits `.neo/brain/` to git. | Yes — adjust commit message, add push, etc. |
+| `brain-gc.sh` | (none — helper) | Deterministic staleness scan of `LESSONS.md`; invoked by `/neo:gc` and `/neo:status`, not by hooks.json. | Yes — adjust flag rules, age threshold. |
 
 ### Disabling a hook
 
@@ -136,8 +137,9 @@ The caps are documented in the brain files themselves and enforced by neo-shadow
 | `ACTIVE.md` line cap | 150 lines | `templates/brain/ACTIVE.md` header comment, `agents/neo-shadow.md` |
 | `ARCHITECTURE.md` audit threshold | 500 lines | `templates/brain/ARCHITECTURE.md` header comment, `agents/neo-shadow.md` |
 | `PROGRESS.md` tail at load | 20 lines | `hooks/scripts/brain-load.sh` (`tail -n 20`) |
+| `LESSONS.md` GC age threshold | 90 days | `hooks/scripts/brain-gc.sh` (`NEO_GC_MAX_AGE_DAYS`) |
 
-To change the `PROGRESS.md` tail, edit the `tail -n 20` line in `brain-load.sh`. The other caps are prose rules in the agent and template files — edit both to keep them consistent.
+To change the `PROGRESS.md` tail, edit the `tail -n 20` line in `brain-load.sh`. To change how old a lesson must be before `/neo:gc` flags it for review, set the `NEO_GC_MAX_AGE_DAYS` environment variable (or edit the default in `brain-gc.sh`). The other caps are prose rules in the agent and template files — edit both to keep them consistent.
 
 ---
 

@@ -59,6 +59,8 @@ Shadow receives a session delta from NEO (what happened, git diff summary, decis
 
 **Pattern Watch:** on every save, shadow checks the session delta for recurring multi-step sequences. New sequences get a `candidate` entry in `WORKFLOWS.md`; existing entries get their `seen` count incremented. At 3 sightings, shadow sets `status: proposed` and flags it in its report so NEO can offer `/neo:train` to the user. Shadow never marks an entry `skilled` — only `/neo:train` does that, after user approval.
 
+**Lesson GC:** lessons are written dated (`[YYYY-MM-DD]`) and anchored to a file path where applicable, and a new lesson on the same subject supersedes the old line in place. `brain-gc.sh` deterministically flags rot (dead anchors, aged, undated entries); `/neo:gc` has shadow review only the flagged entries — KEEP, REWRITE, or ARCHIVE to `.neo/brain/archive/LESSONS.md`. Nothing is deleted outright.
+
 Shadow is jailed to `.neo/` by the `jail.sh` hook. It cannot touch source code even if instructed to.
 
 ### keymaker (`agents/keymaker.md`)
