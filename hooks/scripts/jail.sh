@@ -52,19 +52,38 @@ case "/$REL/" in
   */../*) block "its jail (no '..' path segments)" ;;
 esac
 
+JAIL_LABEL=".neo/"
 case "$AGENT" in
   neo-shadow)
     case "$REL" in
-      .neo/*) exit 0 ;;
+      .neo/*) ;;
       *) block ".neo/" ;;
     esac
     ;;
   architect)
+    JAIL_LABEL=".neo/plans/"
     case "$REL" in
-      .neo/plans/*) exit 0 ;;
+      .neo/plans/*) ;;
       *) block ".neo/plans/" ;;
     esac
     ;;
 esac
+
+# The string prefix check above can be defeated by a pre-existing symlink
+# inside .neo/ that points outside it. Defense-in-depth: refuse to write
+# through a symlink, and when the paths exist, compare parent directories
+# physically (pwd -P). Fail-open when they don't resolve, e.g. new dirs.
+[ -L "$FILE" ] && block "$JAIL_LABEL (refusing to write through a symlink)"
+
+if [ -n "$CWD" ]; then
+  PHYS_DIR=$(cd "$(dirname "$FILE")" 2>/dev/null && pwd -P) || PHYS_DIR=""
+  PHYS_JAIL=$(cd "$CWD/.neo" 2>/dev/null && pwd -P) || PHYS_JAIL=""
+  if [ -n "$PHYS_DIR" ] && [ -n "$PHYS_JAIL" ]; then
+    case "${PHYS_DIR}/" in
+      "${PHYS_JAIL}/"*) ;;
+      *) block "$JAIL_LABEL (path resolves outside the jail)" ;;
+    esac
+  fi
+fi
 
 exit 0
