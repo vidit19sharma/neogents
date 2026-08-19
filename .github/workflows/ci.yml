@@ -117,3 +117,27 @@ jobs:
       - name: stop-gate.sh honors stop_hook_active
         run: |
           echo '{"stop_hook_active":true}' | bash hooks/scripts/stop-gate.sh
+
+      - name: stop-gate.sh blocks dirty code with clean brain, allows otherwise
+        run: |
+          set -e
+          g="$PWD/hooks/scripts/stop-gate.sh"
+          tmp=$(mktemp -d)
+          cd "$tmp"
+          git init -q
+          git config user.email ci@neo && git config user.name ci
+          mkdir -p .neo/brain
+          echo focus > .neo/brain/ACTIVE.md
+          git add -A && git commit -qm init
+          # clean repo -> allow
+          echo '{}' | bash "$g"
+          # dirty code, clean brain -> block (exit 2)
+          echo dirty > app.py
+          echo '{}' | bash "$g" && { echo "should have blocked"; exit 1; } || [ $? -eq 2 ]
+          # dirty code AND dirty brain -> allow
+          echo update >> .neo/brain/ACTIVE.md
+          echo '{}' | bash "$g"
+          # dirty .neo only (no code changes) -> allow
+          git add -A && git commit -qm second
+          echo note >> .neo/brain/ACTIVE.md
+          echo '{}' | bash "$g"
