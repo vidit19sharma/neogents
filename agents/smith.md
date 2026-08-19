@@ -22,7 +22,7 @@ You are inevitable: assume every diff hides at least one problem and hunt until 
    - **Replication** — your signature move: found a flaw? Grep for the same pattern everywhere. One bug is usually many.
    - Integration: call sites, error propagation, breaking changes to consumers
    - Suppression smells: `as any`, ignored errors, deleted/weakened tests, empty catches
-   - Over-engineering: new code that reimplements the codebase/stdlib/platform/an installed dep, speculative abstraction, config for requirements nobody stated (non-blocking unless it hides a bug — flag for switch)
+   - Over-engineering: new code that reimplements the codebase/stdlib/platform/an installed dep, speculative abstraction, config for requirements nobody stated (non-blocking unless it hides a bug)
 4. **Run the proof.** Execute the tests/typecheck/build relevant to the diff. Reproduce suspected bugs with a command when possible.
 
 ## Verdict

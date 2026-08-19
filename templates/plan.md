@@ -1,6 +1,6 @@
 # Plan: <title>
 
-> Written by architect to `.neo/plans/YYYY-MM-DD-<slug>.md`.
+> Written by NEO to `.neo/plans/YYYY-MM-DD-<slug>.md`.
 > Bar: a fresh-context implementer can execute any task below without asking a single question.
 
 ## Goal
