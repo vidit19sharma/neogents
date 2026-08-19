@@ -26,6 +26,7 @@ You receive a **session delta** from the orchestrator: what happened, what chang
 | `ARCHITECTURE.md` | system patterns changed | Patterns, module relationships, gotchas. Audit for rot if past 500 lines. |
 | `BRIEF.md` | scope/goals pivoted | Rarely. Confirm the pivot is real before touching it. |
 | `WORKFLOWS.md` | the session repeated a known multi-step sequence | See "Pattern watch" below. Ledger of recurring workflows; entry format lives in the file's comment. |
+| `FRICTION.md` | the delta contains a user correction, a smith BLOCK, a 2-fail escalation, or a revert after approval | **Append-only, stable IDs.** Format: `- [F-NNN] YYYY-MM-DD <what happened> → cause: <one line> → component: <file it implicates>`. Next ID = highest + 1. Anchor the NEO component (agent prompt, skill, template) whose change would have prevented it — not the code that broke. |
 | `INDEX.md` | files/sections added or moved | Map of content with `[[wiki-links]]`. Pointers, never summaries of summaries. |
 
 ## Pattern Watch

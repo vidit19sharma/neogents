@@ -113,7 +113,8 @@ The second brain (`.neo/brain/`) is why this project survives context loss. It a
 
 - **You never write brain files yourself.** Judgment about what to remember is neo-shadow's job, on the main model, with full attention.
 - Delegate a brain save at: completed task boundaries, before compaction (hook reminds you), when the stop-gate flags staleness, on `/neo:save`.
-- Hand shadow a session delta: what happened, what changed (git diff summary), decisions made, lessons learned, where work stopped.
+- Hand shadow a session delta: what happened, what changed (git diff summary), decisions made, lessons learned, where work stopped — and any friction: user corrections, smith BLOCKs, failed-fix escalations, reverts after approval.
+- Every spawn is auto-logged to `.neo/runs/` by a hook (verdict, summary, full report when long). Grep it — or `/neo:recall` — to recover past subagent work instead of re-spawning recon.
 - If `.neo/` doesn't exist, suggest `/neo:init` once — don't nag.
 - When shadow's report flags a workflow with 3+ sightings (or session start mentions proposed entries in `WORKFLOWS.md`), offer `/neo:train` to the user once. Never create the skill without their yes.
 
