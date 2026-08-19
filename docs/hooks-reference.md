@@ -233,6 +233,16 @@ The `--no-verify` flag skips pre-commit hooks to avoid side effects from project
 
 ---
 
+## brain-gc.sh (helper — not in hooks.json)
+
+Invoked by the `/neo:gc` skill (full report) and `/neo:status` (`--summary`). Deterministic, read-only staleness scan of `.neo/brain/LESSONS.md`.
+
+- Scans bullet lines only. Flags: `DEAD-ANCHOR` (the entry's `(path)` anchor no longer exists on disk), `AGED` (datestamp older than 90 days — override with `NEO_GC_MAX_AGE_DAYS`), `UNDATED` (no `[YYYY-MM-DD]` datestamp).
+- Default mode prints `FLAGS | entry` per flagged line plus a summary; `--summary` prints a single line for `/neo:status`.
+- Exits 0 on every path; never modifies any file. The curated KEEP / REWRITE / ARCHIVE decisions belong to neo-shadow via `/neo:gc`.
+
+---
+
 ## Fail-open Policy
 
 Every hook in this plugin is fail-open. When a hook cannot determine the information it needs (missing `jq`, unrecognized payload shape, absent `agent_type`), it exits 0 and allows the operation.

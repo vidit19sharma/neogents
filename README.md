@@ -71,6 +71,7 @@ Spawn depth is capped at 2 (main thread -> specialist). Leaf agents have no `Age
 | `/neo:review` | Force adversarial review via smith on current diff |
 | `/neo:map` | Fan out parallel keymakers across the codebase, then have neo-shadow rewrite `ARCHITECTURE.md` |
 | `/neo:train` | Promote a recurring workflow from `WORKFLOWS.md` into a project skill (human-gated) |
+| `/neo:gc` | Scan `LESSONS.md` for rot (dead anchors, aged, undated), then neo-shadow keeps / rewrites / archives only the flagged entries |
 
 ---
 
@@ -158,7 +159,7 @@ neo/
 ├── agents/                  # 11 agent definitions
 │   ├── mouse.md
 │   └── switch.md            # (plus neo, neo-shadow, keymaker, tank, architect, trinity, smith, oracle, morpheus)
-├── skills/                  # 7 commands (init, save, status, plan, review, map, train)
+├── skills/                  # 8 commands (init, save, status, plan, review, map, train, gc)
 │   └── map/
 ├── hooks/
 │   ├── hooks.json

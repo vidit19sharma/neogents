@@ -45,9 +45,12 @@ See also: [customization.md](customization.md) for tuning caps and sync behavior
 
 ### LESSONS.md — every line pays rent
 
-- Format: imperative + reason. "Never X — because Y happened." / "Always X before Y — because Z."
-- Loaded at every session start. A stale lesson that no longer applies wastes context on every session. Delete it when the dependency is removed or the pattern is retired.
-- neo-shadow merges duplicates on write.
+- Entry format: `- [YYYY-MM-DD] imperative + reason. (anchor)` — e.g. `- [2026-07-20] Never mock the auth client in integration tests — hides token-refresh bugs. (src/auth/client.ts)`.
+  - The **datestamp** is when the lesson was learned or last confirmed true.
+  - The **anchor** is an optional trailing `(path)` pointing at the file or config the lesson is about. Project-general lessons ("always run tests before pushing") don't need one.
+- Loaded at every session start. A stale lesson that no longer applies wastes context on every session — worse, it can steer the model wrong.
+- **Supersession on write:** when a new lesson covers the same subject or anchor as an existing one, neo-shadow **replaces** the old line (new text, today's date) instead of appending a near-duplicate. Contradictory lessons must not coexist.
+- **Staleness is detected, not guessed:** `brain-gc.sh` deterministically flags dead anchors, entries older than the age threshold (default 90 days), and undated entries. `/neo:gc` then has neo-shadow review only the flagged entries against the current codebase. Retired lessons move to `.neo/brain/archive/LESSONS.md` — never silently deleted.
 
 ### DECISIONS.md — on demand, not always loaded
 
@@ -172,6 +175,28 @@ Commit message format: `neo: brain sync YYYY-MM-DD`.
 - Not a git repo = no gate.
 
 The block message tells NEO exactly what to do: "spawn neo-shadow with the session delta or run `/neo:save`." If there's genuinely nothing worth saving, finishing again lets it through.
+
+---
+
+## Garbage Collection — /neo:gc
+
+Lessons rot: files move, dependencies get removed, patterns get retired. Because a stale lesson is often *more* plausible-looking than a duplicate, rot can't be detected by similarity — it needs evidence. NEO splits the job:
+
+**Deterministic scan (`brain-gc.sh`, zero LLM cost):**
+
+| Flag | Meaning |
+|---|---|
+| `DEAD-ANCHOR` | The entry's `(path)` anchor no longer exists on disk. |
+| `AGED` | Datestamp older than the threshold (default 90 days; `NEO_GC_MAX_AGE_DAYS`). |
+| `UNDATED` | No `[YYYY-MM-DD]` datestamp (legacy entry). |
+
+**Curated pass (`/neo:gc`, neo-shadow):** reviews **only the flagged entries** against the current codebase and gives each a verdict:
+
+- **KEEP** — still true. Undated entries get stamped with today's date; aged-but-confirmed entries get their date refreshed.
+- **REWRITE** — kernel is true, details drifted (file moved, command renamed). Text, anchor, and date updated.
+- **ARCHIVE** — no longer applies. Moved to `.neo/brain/archive/LESSONS.md` under a dated heading with a one-line reason. Nothing is ever deleted outright — the archive plus git history make every GC decision reversible.
+
+Unflagged entries are never touched. `/neo:status` surfaces a one-line lesson-health summary (`brain-gc.sh --summary`) so rot gets noticed without running a full GC.
 
 ---
 
