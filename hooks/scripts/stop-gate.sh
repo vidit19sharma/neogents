@@ -20,12 +20,12 @@ fi
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
 
 # Dirty code (outside .neo/) with an untouched brain = stale memory.
-CODE_DIRTY="$(git status --porcelain 2>/dev/null | grep -v ' \.neo/' | grep -v '^.. \.neo/' | grep -c . || true)"
+CODE_DIRTY="$(git status --porcelain -- ':(exclude).neo' 2>/dev/null | grep -c . || true)"
 BRAIN_DIRTY="$(git status --porcelain -- .neo/brain 2>/dev/null | grep -c . || true)"
 
 if [ "${CODE_DIRTY:-0}" -gt 0 ] && [ "${BRAIN_DIRTY:-0}" -eq 0 ]; then
   cat >&2 <<'EOF'
-[neo stop-gate] Code changed this session but the second brain was not updated.
+[neo stop-gate] The repo has uncommitted code changes (this session or earlier) but the second brain was not updated.
 Before finishing: spawn neo-shadow with the session delta (what happened, what changed, decisions, lessons, next steps) or run /neo:save.
 If there is genuinely nothing worth saving, finish again and this gate will let you through.
 EOF
