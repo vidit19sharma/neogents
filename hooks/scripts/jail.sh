@@ -2,7 +2,6 @@
 # NEO plugin — PreToolUse hook (matcher: Edit|Write|NotebookEdit).
 # Path jail for write-restricted agents:
 #   neo-shadow  -> may write only under .neo/
-#   architect   -> may write only under .neo/plans/
 # All other agents and the main thread pass through untouched.
 #
 # Protocol: exit 0 = allow; exit 2 + stderr = block (stderr is fed back
@@ -25,7 +24,7 @@ AGENT=$(printf '%s' "$INPUT" | jq -r '.agent_type // empty' 2>/dev/null)
 AGENT="${AGENT##*:}"
 
 case "$AGENT" in
-  neo-shadow|architect) ;;
+  neo-shadow) ;;
   *) exit 0 ;;
 esac
 
@@ -55,16 +54,27 @@ esac
 case "$AGENT" in
   neo-shadow)
     case "$REL" in
-      .neo/*) exit 0 ;;
+      .neo/*) ;;
       *) block ".neo/" ;;
     esac
     ;;
-  architect)
-    case "$REL" in
-      .neo/plans/*) exit 0 ;;
-      *) block ".neo/plans/" ;;
-    esac
-    ;;
 esac
+
+# The string prefix check above can be defeated by a pre-existing symlink
+# inside .neo/ that points outside it. Defense-in-depth: refuse to write
+# through a symlink, and when the paths exist, compare parent directories
+# physically (pwd -P). Fail-open when they don't resolve, e.g. new dirs.
+[ -L "$FILE" ] && block ".neo/ (refusing to write through a symlink)"
+
+if [ -n "$CWD" ]; then
+  PHYS_DIR=$(cd "$(dirname "$FILE")" 2>/dev/null && pwd -P) || PHYS_DIR=""
+  PHYS_JAIL=$(cd "$CWD/.neo" 2>/dev/null && pwd -P) || PHYS_JAIL=""
+  if [ -n "$PHYS_DIR" ] && [ -n "$PHYS_JAIL" ]; then
+    case "${PHYS_DIR}/" in
+      "${PHYS_JAIL}/"*) ;;
+      *) block ".neo/ (path resolves outside the jail)" ;;
+    esac
+  fi
+fi
 
 exit 0
