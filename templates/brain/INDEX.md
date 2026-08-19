@@ -12,6 +12,7 @@
 - [[DECISIONS]] — significant choices with rationale and rejected alternatives.
 - [[LESSONS]] — hard-won anti-patterns. "Never X — because Y." Always loaded; every line earns its place.
 - [[WORKFLOWS]] — recurring multi-step sequences spotted across sessions. Promoted to skills via /neo:train.
+- [[FRICTION]] — append-only ledger of corrections, review blocks, and escalations. Evidence for improving NEO itself.
 
 ## Topic pages
 
