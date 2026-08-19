@@ -14,15 +14,10 @@ Every agent in `agents/*.md` has a `model:` frontmatter field. The default roste
 |---|---|---|
 | neo | (session model) | Orchestrator; uses whatever the user started the session with. |
 | neo-shadow | `inherit` | Memory writes are the highest-leverage tokens. Always runs on the main model. |
-| keymaker | `haiku` | Search work; cheap and fast. |
-| tank | `haiku` | External docs lookup; cheap and fast. |
-| architect | `opus` | Plan synthesis; needs the best reasoning available. |
-| trinity | `sonnet` | Implementation; mid-tier balances quality and cost. |
-| mouse | `sonnet` | Test engineering; mid-tier balances quality and cost. |
+| trinity | `sonnet` | Implementation and tests; mid-tier balances quality and cost. |
 | smith | `opus` | Adversarial review; needs the best reasoning available. |
-| switch | `sonnet` | Code simplification; procedural slop removal. |
-| oracle | `opus` | Debugging consultant; needs the best reasoning available. |
-| morpheus | `sonnet` | Git/GitHub operations; procedural work. |
+
+Recon uses Claude Code's built-in exploration subagents, so there is no model knob for it here — it follows the platform defaults.
 
 **To override a single agent's model**, edit the `model:` line in its `agents/*.md` file:
 
@@ -62,13 +57,14 @@ Open the relevant script and change it. The scripts are plain bash with no build
 
 | Script | Hook event | What it does | Safe to edit? |
 |---|---|---|---|
-| `brain-load.sh` | SessionStart | Cats brain files into context. | Yes — add files, change order, adjust the graphify detection. |
-| `jail.sh` | PreToolUse (Edit/Write) | Blocks neo-shadow and architect from writing outside their jails. | Carefully — weakening this removes a hard safety guarantee. |
-| `spawn-guard.sh` | PreToolUse (Agent) | Blocks spawns of agents not in the NEO roster. | Yes, when adding roster agents (see below). |
+| `brain-load.sh` | SessionStart | Cats brain files (plus a fresh `CHECKPOINT.md`, if any) into context. | Yes — add files, change order, adjust the graphify detection. |
+| `jail.sh` | PreToolUse (Edit/Write) | Blocks neo-shadow from writing outside `.neo/`. | Carefully — weakening this removes a hard safety guarantee. |
 | `format.sh` | PostToolUse (Edit/Write) | Formats the just-edited file with project-local formatters. Fail-open. | Yes — add formatters, adjust file extensions. |
-| `save-brain.sh` | PreCompact | Injects a reminder to save the brain before compaction. | Yes — adjust the message. |
+| `run-ledger.sh` | PostToolUse (Agent/Task) | Appends every subagent spawn (verdict, summary, full report when long) to `.neo/runs/`. | Yes — adjust the entry format or report threshold. |
+| `checkpoint.sh` | PreCompact, Stop | Writes a deterministic snapshot (branch, git status, diff stat, last message) to `.neo/CHECKPOINT.md`. | Yes — adjust the throttle window or snapshot contents. |
 | `stop-gate.sh` | Stop | Blocks session end when code changed but brain wasn't saved. | Yes — adjust the staleness logic. |
 | `brain-sync.sh` | SessionEnd | Commits `.neo/brain/` to git. | Yes — adjust commit message, add push, etc. |
+| `brain-gc.sh` | (none — helper) | Deterministic staleness scan of `LESSONS.md`; invoked by `/neo:gc` and `/neo:status`, not by hooks.json. | Yes — adjust flag rules, age threshold. |
 
 ### Disabling a hook
 
@@ -99,9 +95,7 @@ When NEO isn't the session agent, the brain files still exist and the hooks stil
 
 ## Adding Roster Agents
 
-The NEO roster is the set of agents NEO can spawn. Adding a new agent requires two steps:
-
-**Step 1 — create the agent file** in `agents/<name>.md` with the standard frontmatter:
+The NEO roster is the set of agents NEO can spawn. To add one, **create the agent file** in `agents/<name>.md` with the standard frontmatter:
 
 ```yaml
 ---
@@ -112,18 +106,9 @@ tools: <comma-separated list — no Agent tool for leaf agents>
 ---
 ```
 
-**Step 2 — add the name to `spawn-guard.sh`'s whitelist:**
+Then mention the agent in `agents/neo.md`'s specialist table so NEO knows when to spawn it. Before adding an agent, check `.neo/brain/FRICTION.md` — a new specialist should answer a recurring, evidenced friction pattern, not a hypothetical one.
 
-```bash
-case "$AGENT" in
-  neo-shadow|keymaker|tank|architect|trinity|mouse|smith|switch|oracle|morpheus|<name>)
-    exit 0
-    ;;
-```
-
-Without step 2, `spawn-guard.sh` will block any attempt to spawn the new agent and log: `'<name>' is not in the NEO roster.`
-
-**Leaf agents must not have the `Agent` tool.** The structural guarantee that leaf agents can't spawn is that they don't have `Agent` in their `tools` list. `spawn-guard.sh` is defense-in-depth, not the primary control.
+**Leaf agents must not have the `Agent` tool.** The structural guarantee that leaf agents can't spawn is that they don't have `Agent` in their `tools` list. CI enforces this check.
 
 ---
 
@@ -136,8 +121,9 @@ The caps are documented in the brain files themselves and enforced by neo-shadow
 | `ACTIVE.md` line cap | 150 lines | `templates/brain/ACTIVE.md` header comment, `agents/neo-shadow.md` |
 | `ARCHITECTURE.md` audit threshold | 500 lines | `templates/brain/ARCHITECTURE.md` header comment, `agents/neo-shadow.md` |
 | `PROGRESS.md` tail at load | 20 lines | `hooks/scripts/brain-load.sh` (`tail -n 20`) |
+| `LESSONS.md` GC age threshold | 90 days | `hooks/scripts/brain-gc.sh` (`NEO_GC_MAX_AGE_DAYS`) |
 
-To change the `PROGRESS.md` tail, edit the `tail -n 20` line in `brain-load.sh`. The other caps are prose rules in the agent and template files — edit both to keep them consistent.
+To change the `PROGRESS.md` tail, edit the `tail -n 20` line in `brain-load.sh`. To change how old a lesson must be before `/neo:gc` flags it for review, set the `NEO_GC_MAX_AGE_DAYS` environment variable (or edit the default in `brain-gc.sh`). The other caps are prose rules in the agent and template files — edit both to keep them consistent.
 
 ---
 

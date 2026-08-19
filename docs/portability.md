@@ -16,9 +16,9 @@ Claude Code specifics are isolated to **one clearly marked section** at the bott
 ## Claude Code Specifics
 
 <!-- harness-specific section: swap this block when porting to another harness -->
-- Spawn specialists with the `Agent` tool (`subagent_type` = roster name).
+- Spawn specialists with the `Agent` tool (`subagent_type` = roster name); recon via the built-in exploration subagent types.
 - Track work with `TodoWrite`; ask the user structured questions with `AskUserQuestion` (one at a time).
-- Brain loading, path jails, spawn whitelist, and the stop-gate are enforced by plugin hooks — they are deterministic, not suggestions.
+- Brain loading, path jails, and the stop-gate are enforced by plugin hooks — they are deterministic, not suggestions.
 - Verify edits with project linters/tests via `Bash`; prefer project-defined commands from CLAUDE.md.
 ```
 
@@ -68,8 +68,8 @@ The brain files, agent prose, skill files, and templates are all harness-neutral
 
 ## What Stays the Same Across Harnesses
 
-- The second brain contract: eight files, their purposes, update cadences, and size rules. Documented in [brain-spec.md](brain-spec.md).
-- The agent roster: neo, neo-shadow, keymaker, tank, architect, trinity, smith, oracle. Their jobs, model tiers, and tool restrictions are harness-neutral concepts.
+- The second brain contract: nine files, their purposes, update cadences, and size rules. Documented in [brain-spec.md](brain-spec.md).
+- The agent roster: neo, neo-shadow, trinity, smith. Their jobs, model tiers, and tool restrictions are harness-neutral concepts.
 - The tiered pipeline: TRIVIAL / STANDARD / DEEP. The classification logic and escalation rules don't depend on any harness.
 - The delegation contract: six-section spawn prompt (TASK / EXPECTED OUTCOME / TOOLS / MUST DO / MUST NOT DO / CONTEXT). This is a prose discipline, not a tool call.
 - The brain file format: plain markdown with `[[wiki-links]]`. No harness dependency.

@@ -1,5 +1,7 @@
 # NEO — Design Specification
 
+> **Historical document.** This spec describes the original 11-agent design as approved on 2026-07-13. The roster has since been cut to four agents (neo, neo-shadow, trinity, smith) with recon delegated to Claude Code's built-in exploration subagents; spawn-guard and the PreCompact save reminder were replaced by the run ledger and deterministic checkpoint. See `docs/architecture.md` for the current design. This file is kept as the append-only decision log.
+
 **Date:** 2026-07-13
 **Status:** Approved (user: "implement")
 **Target:** Claude Code plugin (v1). Harness-neutral authoring for future OpenCode/Codex adapters.
@@ -144,6 +146,7 @@ Oracle is auto-consulted after 2 failed fix attempts at any tier.
 | `/neo:review` | Force smith adversarial pass on current diff |
 | `/neo:map` | Fan out parallel keymakers across the codebase; neo-shadow synthesizes findings into `ARCHITECTURE.md` |
 | `/neo:train` | Review `WORKFLOWS.md` candidates, draft a `SKILL.md` for the chosen workflow, write to project's `.claude/skills/<name>/` on user approval. Human-gated; user request overrides 3-sighting threshold. |
+| `/neo:gc` | Garbage-collect stale lessons: deterministic `brain-gc.sh` scan (dead anchors, aged >90d, undated), then neo-shadow keeps / rewrites / archives only the flagged entries. Archive at `.neo/brain/archive/LESSONS.md`; nothing deleted outright. |
 
 Rejected: `/neo:decide`, `/neo:lesson` (extraction IS Shadow's job during saves), `/neo:grill` (folded into `/neo:plan`).
 
@@ -157,10 +160,10 @@ neo/
 │   ├── plugin.json          # name "neo" → /neo:* namespace
 │   └── marketplace.json     # self-serve marketplace
 ├── agents/                  # 11 agent definitions
-├── skills/                  # 7 commands (init, save, status, plan, review, map, train)
+├── skills/                  # 8 commands (init, save, status, plan, review, map, train, gc)
 ├── hooks/
 │   ├── hooks.json
-│   └── scripts/             # 6 shell scripts
+│   └── scripts/             # 8 shell scripts (7 hook-wired + brain-gc.sh helper)
 ├── templates/
 │   ├── brain/               # 8 brain file templates
 │   ├── CLAUDE.md            # starter project memory
@@ -211,3 +214,4 @@ neo/
 | 15 | /neo:map as a skill, not an agent (2026-07-13) | Mapping is a workflow: keymaker fan-out + shadow synthesis. A standing mapper agent would be idle between map runs and would duplicate keymaker's read-only toolset. A skill invokes the existing roster correctly and keeps the agent count lean. |
 | 16 | Ponytail: distill + recommend, don't vendor (2026-07-13) | DietrichGebert/ponytail (MIT) enforces write-time YAGNI via a 7-rung decision ladder — zero overlap with NEO's domain. Vendoring its skills would rot against upstream and add a Node.js hook dependency (NEO is pure bash/markdown). Instead: trinity embeds a distilled, credited version of the ladder; smith gains an over-engineering hunt criterion; switch gains a reimplementation hunt; README recommends installing ponytail alongside (its SubagentStart hook injects the full ruleset into every NEO-spawned agent). |
 | 17 | Workflow harvesting (2026-07-14) | Shadow detects recurring multi-step workflows into a `WORKFLOWS.md` ledger (3-sighting threshold); `/neo:train` promotes candidates to project skills, human-gated. Rationale: Boris Cherny's "if you do something more than once a day, turn it into a skill or command" made systematic — detection is free at save time (shadow already reads every session delta); creation is gated because skills change behavior; jail untouched (NEO main thread writes the skill file, same as `/neo:init` writing BRIEF.md). |
+| 18 | Memory validity + GC (2026-07-20) | Lessons rot as code moves; a stale lesson is worse than none because it is always loaded and steers every session. Three-part fix: (a) `LESSONS.md` entries carry `[YYYY-MM-DD]` datestamps and optional `(path)` evidence anchors; (b) shadow supersedes same-subject lessons in place so contradictions never coexist; (c) `/neo:gc` pairs a deterministic zero-LLM scan (`brain-gc.sh`: DEAD-ANCHOR / AGED / UNDATED) with a shadow-curated pass over only the flagged entries — KEEP / REWRITE / ARCHIVE to `.neo/brain/archive/LESSONS.md`, never silent deletion. Scan is deterministic because staleness needs evidence, not similarity; judgment stays with shadow on the main model. Also hardened: format.sh python formatters now require project opt-in config; stop-gate uses `:(exclude).neo` pathspec. |

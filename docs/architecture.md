@@ -1,6 +1,6 @@
 # NEO Architecture
 
-Deep dive into design principles, the agent roster, the tiered pipeline, delegation mechanics, and the enforcement model.
+Design principles, the agent roster, the tiered pipeline, delegation mechanics, and the enforcement model.
 
 ---
 
@@ -11,169 +11,101 @@ Deep dive into design principles, the agent roster, the tiered pipeline, delegat
 | Context isolation is the superpower | Subagents inherit zero history. The orchestrator constructs exactly the context each specialist needs, no more. This is what makes parallel recon safe and cheap. |
 | Leaf workers never get the spawn tool | Structural guarantee: a leaf cannot spawn even if its prompt told it to. Depth stays at 2. |
 | Hooks are deterministic; prompts are advisory | Enforce with hooks, guide with prompts. A jail in a system prompt is a suggestion. A jail in a `PreToolUse` hook with `exit 2` is a hard block. |
+| Deterministic work never goes to an LLM | Checkpoints, run logging, staleness scans, and formatting are shell scripts. An LLM asked to do a script's job will eventually skip it. |
 | Give the agent a way to verify its work | Evidence, not assertions. "It typechecks" is not verified. Every task has a `verify:` step; every report has command output. |
-| Plan-first | Energy poured into the plan is what lets implementation be one-shot. The architect artifact exists so trinity never has to guess. |
+| Plan-first | Energy poured into the plan is what lets implementation be one-shot. The plan artifact exists so trinity never has to guess. |
 | Persist learnings before ending sessions | The second brain is why this project survives context loss. neo-shadow runs on the main model because memory writes are the highest-leverage tokens in the system. |
 | Bootstrap or die | Without session-start activation, architecture is dead weight. The `SessionStart` hook is the entry point; everything else depends on it. |
-| Model tiering = cost control | haiku for search, sonnet for implementation, opus for planning/review/debugging. Cheap models do cheap work; expensive models do judgment work. |
+| Don't wrap what the platform provides | Codebase recon uses Claude Code's built-in exploration subagents. External research uses WebFetch/WebSearch. NEO only defines agents for jobs the platform doesn't ship: memory, disciplined implementation, adversarial review. |
 | Detect, don't depend | Optional tooling (graphify) is advertised when present, never required. The plugin works with zero external dependencies. |
 
 ---
 
 ## Agent Roster
 
-All agents live in `agents/*.md`. The `description` field drives Claude Code's auto-delegation; the Matrix theme costs nothing functionally.
+All agents live in `agents/*.md`. Four agents; everything else is either a platform built-in or a rule inside neo's prompt.
 
 ### neo (`agents/neo.md`)
 
-The main session agent. Activated via `settings.json` `{"agent": "neo"}`, which hands the main thread to NEO on every session start.
+The main session agent. Activated via `settings.json` `{"agent": "neo"}`.
 
-**Model:** session model (whatever the user has configured)
-**Tools:** all tools, including `Agent`
-**Spawns:** yes, the ONLY agent that spawns
+**Model:** session model · **Tools:** all, including `Agent` · **Spawns:** yes, the ONLY spawner
 
-Responsibilities:
-- Classify every incoming message (intent gate, turn-local, never carried across turns)
-- Route to the correct tier (TRIVIAL / STANDARD / DEEP)
-- Construct delegation prompts with the 6-section contract
-- Verify specialist output against MUST DO / MUST NOT DO before accepting
-- Maintain todo lists as the real-time progress display
-- Delegate brain saves to neo-shadow; never write brain files itself
+- Classifies every incoming message (intent gate, turn-local, never carried across turns)
+- Routes to the correct tier (TRIVIAL / STANDARD / DEEP)
+- Runs recon itself: built-in exploration subagents (2-5 in parallel) for the codebase, WebFetch/WebSearch for external knowledge
+- Writes plan artifacts to `.neo/plans/` on DEEP work
+- Constructs delegation prompts with the 6-section contract and verifies output against MUST DO / MUST NOT DO
+- Owns git shipping rules (explicit intent only, match repo style, pull-before-push, never force-push shared history)
+- Delegates brain saves to neo-shadow; never writes brain files itself
 
 ### neo-shadow (`agents/neo-shadow.md`)
 
-**Model:** `inherit` (resolves to the main session model)
-**Tools:** Read, Grep, Glob, Write, Edit (no Bash)
-**Spawns:** no
+**Model:** `inherit` · **Tools:** Read, Grep, Glob, Write, Edit (no Bash) · **Spawns:** no
 
-The memory keeper. Runs on the main model because context management is the highest-priority work in the system. A wrong lesson or a vague `ACTIVE.md` poisons every future session that loads it.
+The memory keeper. Runs on the main model because a wrong lesson or a vague `ACTIVE.md` poisons every future session that loads it.
 
-Shadow receives a session delta from NEO (what happened, git diff summary, decisions, lessons, where work stopped) and:
+Shadow receives a session delta from NEO and:
 - Rewrites `ACTIVE.md` in full (150-line cap)
-- Appends to `PROGRESS.md` (append-only, never edits old entries)
-- Appends to `DECISIONS.md` and `LESSONS.md` only when the delta earns it
-- Touches `ARCHITECTURE.md` only when system patterns changed
-- Touches `BRIEF.md` only on genuine scope pivots
-- Updates `INDEX.md` when files or sections move
-- Updates `WORKFLOWS.md` when the session repeated a known multi-step sequence (**Pattern Watch**)
+- Appends to `PROGRESS.md` (append-only)
+- Appends to `DECISIONS.md` and `LESSONS.md` only when the delta earns it. Lessons are datestamped `[YYYY-MM-DD]` and anchored to a file path; a lesson on the same subject as an existing one **supersedes it in place**
+- Appends to `FRICTION.md` when the delta contains a user correction, a smith BLOCK, a failed-fix escalation, or a revert after approval (stable `[F-NNN]` IDs)
+- Touches `ARCHITECTURE.md` only on pattern changes, `BRIEF.md` only on scope pivots
+- Updates `WORKFLOWS.md` when the session repeated a known multi-step sequence (**Pattern Watch**: `candidate` → `proposed` at 3 sightings → `skilled` only via `/neo:train`)
 
-**Pattern Watch:** on every save, shadow checks the session delta for recurring multi-step sequences. New sequences get a `candidate` entry in `WORKFLOWS.md`; existing entries get their `seen` count incremented. At 3 sightings, shadow sets `status: proposed` and flags it in its report so NEO can offer `/neo:train` to the user. Shadow never marks an entry `skilled` — only `/neo:train` does that, after user approval.
+**Garbage collection:** `/neo:gc` runs `brain-gc.sh` — a deterministic staleness scan of `LESSONS.md` — then spawns shadow to KEEP / REWRITE / ARCHIVE flagged entries. See [brain-spec.md](brain-spec.md).
 
 Shadow is jailed to `.neo/` by the `jail.sh` hook. It cannot touch source code even if instructed to.
 
-### keymaker (`agents/keymaker.md`)
-
-**Model:** haiku
-**Tools:** Read, Grep, Glob
-**Spawns:** no
-
-Codebase search. Given a question about this repository, keymaker finds the exact files, lines, and patterns that answer it. NEO fires 2-5 in parallel for non-trivial recon. Output is structured `FOUND / CONVENTIONS OBSERVED / NOT FOUND` with `file:line` references.
-
-### tank (`agents/tank.md`)
-
-**Model:** haiku
-**Tools:** Read, Grep, Glob, WebFetch, WebSearch
-**Spawns:** no
-
-External knowledge. Unfamiliar libraries, framework questions, API docs, OSS examples, best practices. Checks project manifests for dependency versions before answering version-sensitive questions. Output is structured `ANSWER / DETAILS / SOURCES / CAVEATS`.
-
-### architect (`agents/architect.md`)
-
-**Model:** opus
-**Tools:** Read, Grep, Glob, Write
-**Spawns:** no
-
-Plan synthesis. Receives the interview transcript (from `/neo:plan`), recon findings, and constraints. Produces a plan artifact at `.neo/plans/YYYY-MM-DD-<slug>.md` containing: goal, non-goals, inherited decisions, task graph with dependency edges, parallel waves, and per-task `files / do / verify / agent` specs.
-
-Jailed to `.neo/plans/` by the `jail.sh` hook. Cannot write code.
-
-**Platform constraint:** subagents cannot use `AskUserQuestion`. The grill-me interview therefore runs on the main thread (NEO asks, one question at a time), and only the completed transcript is handed to architect in a fresh context for synthesis.
-
 ### trinity (`agents/trinity.md`)
 
-**Model:** sonnet
-**Tools:** Read, Grep, Glob, Write, Edit, Bash
-**Spawns:** no
+**Model:** sonnet · **Tools:** Read, Grep, Glob, Write, Edit, Bash · **Spawns:** no
 
-Implementation. Executes ONE well-defined task per invocation. Receives a fully-specified task from a plan artifact or NEO's delegation prompt. Reads every file the task names before writing. Matches existing conventions exactly. Runs the task's `verify:` step and includes command output in its report. Stops and reports conflicts rather than improvising.
-
-### mouse (`agents/mouse.md`)
-
-**Model:** sonnet
-**Tools:** Read, Grep, Glob, Write, Edit, Bash
-**Spawns:** no
-
-Test engineer. Receives ONE test target per invocation: a module, a change set, or a described behavior. Reads the code under test and the existing test suite in full, then enumerates scenarios (happy path, edges, failure modes, regressions) before writing a single line. Tests must be indistinguishable from the ones already in the project. Runs the suite and captures actual command output. Failures are findings: mouse reports them precisely and never weakens an assertion or adds a skip. If the project has no test framework, mouse reports the options that fit the stack and stops. Never modifies production code.
+Implementation. Executes ONE well-defined task per invocation — tests included. Reads every file the task names before writing. Matches existing conventions exactly. Writes and runs tests for the behavior she changes in the same task. Runs the task's `verify:` step and includes command output in her report. Stops and reports conflicts rather than improvising. Ships with a distilled YAGNI decision ladder.
 
 ### smith (`agents/smith.md`)
 
-**Model:** opus
-**Tools:** Read, Grep, Glob, Bash
-**Spawns:** no
+**Model:** opus · **Tools:** Read, Grep, Glob, Bash · **Spawns:** no
 
-Adversarial review. Read-only with test execution. Hunts correctness errors, spec deviations, security issues, and replication of found patterns across the codebase. Delivers a `VERDICT: APPROVE | BLOCK` with `file:line` evidence for every blocking item. Cannot write or edit.
+Adversarial review. Read-only with test execution. Hunts correctness errors, spec deviations, security issues, and replication of found patterns across the codebase. Delivers a `VERDICT: APPROVE | BLOCK` with `file:line` evidence for every blocking item.
 
-### switch (`agents/switch.md`)
+### Folded into neo (former agents)
 
-**Model:** sonnet
-**Tools:** Read, Grep, Glob, Write, Edit, Bash
-**Spawns:** no
-
-Code simplifier. Receives a scope (files or diff from the current effort) and works inside it only. Hunts dead code, needless abstraction, duplication, comment slop (restating the code, changelog narration, placeholder headers), defensive slop (null checks for conditions impossible by construction), and verbosity where the language idiom does it in fewer lines. Every removal is behavior-preserving: switch runs the project's tests or build after each change and reverts any simplification that causes a failure. When judgment is close, it leaves the code alone and reports instead. Never touches tests, never touches files outside the given scope.
-
-### oracle (`agents/oracle.md`)
-
-**Model:** opus
-**Tools:** Read, Grep, Glob, Bash
-**Spawns:** no
-
-Consultant. Consulted automatically after 2 failed fix attempts on the same problem. Also used for architecture tradeoffs and security review. Diagnoses root causes, not symptoms. Prescribes the minimal change with `file:line` precision. Cannot write or edit.
-
-### morpheus (`agents/morpheus.md`)
-
-**Model:** sonnet
-**Tools:** Read, Grep, Glob, Write, Edit, Bash
-**Spawns:** no
-
-Git/GitHub operator. Spawned ONLY on explicit shipping intent (commit, push, PR, release) — this preserves the "never commit unless asked" rule while keeping git mechanics off NEO's coordination budget. Simple imperative commit messages, secret scan before staging, large-file prevention (LFS recommendation at 100 MB — GitHub's hard limit), `git pull --rebase` before push with hard stop on conflicts, and batched commit-range pushes when a pack approaches GitHub's 2 GB limit. Owns release-adjacent docs only (CHANGELOG, release notes, PR descriptions). Never force-pushes, never rewrites pushed history, never touches `.neo/brain/` commits (the brain-sync hook owns those).
+| Former agent | Now |
+|---|---|
+| keymaker (codebase search) | Claude Code's built-in exploration subagents, fired 2-5 in parallel |
+| tank (external research) | NEO's own WebFetch/WebSearch |
+| architect (plan synthesis) | NEO writes the plan artifact itself, following `templates/plan.md` |
+| mouse (tests) | trinity tests what she changes, same task |
+| switch (simplifier) | NEO strips slop from the diff scope after smith approves, then re-runs tests |
+| oracle (debug consultant) | Failure protocol rule: after 2 failed fixes, stop and re-derive from scratch |
+| morpheus (git operator) | Shipping rules in neo's prompt |
 
 ---
 
 ## Tiered Pipeline
 
-NEO classifies every request before acting. The classification is turn-local and never carried across turns.
+NEO classifies every request before acting. The classification is turn-local.
 
-### TRIVIAL
+**TRIVIAL** — one file, known location, obvious change. NEO edits directly and runs diagnostics.
 
-**Trigger:** one file, known location, obvious change.
-
-NEO edits directly and runs diagnostics. Spawning would cost more than doing.
-
-### STANDARD
-
-**Trigger:** 2+ files, or 2+ steps, with clear scope.
-
-1. Recon: keymaker (and tank if external libraries are involved) in parallel.
+**STANDARD** — 2+ files or steps, clear scope.
+1. Recon: built-in exploration subagents in parallel; WebFetch/WebSearch for external libraries.
 2. Plan: NEO writes a todo list with atomic items, each with a verify step.
-3. Execute: trinity per task, or NEO directly when coordination overhead exceeds the task.
-4. Test: mouse writes and runs tests when behavior changed and a test suite exists.
-5. Review: smith on the diff.
+3. Execute: trinity per task (tests included), or NEO directly when coordination overhead exceeds the task.
+4. Review: smith on the diff.
 
-### DEEP
+**DEEP** — new feature, ambiguous scope, architectural impact. Forced by `/neo:plan`.
+1. Interview: NEO asks one question at a time on the main thread, leading with a recommended answer.
+2. Recon runs in parallel with the interview.
+3. NEO writes the plan artifact to `.neo/plans/YYYY-MM-DD-<slug>.md` following `templates/plan.md`.
+4. Approval gate: execution does not start before the user approves the plan.
+5. Execute: trinity per task, fresh contexts, parallel waves where the dependency graph allows, tests included.
+6. Review: smith adversarial pass on the full diff.
+7. NEO strips slop from the diff scope and re-runs tests.
+8. Brain save: neo-shadow updates the second brain.
 
-**Trigger:** new feature, ambiguous scope, architectural impact. Also forced by `/neo:plan`.
-
-1. Interview: NEO asks one question at a time on the main thread, leading with a recommended answer. Continues until goal, scope, non-goals, constraints, and every design fork are resolved.
-2. Recon: keymaker/tank run in parallel with the interview.
-3. Architect: receives the full interview transcript + recon findings in a fresh context. Produces the plan artifact.
-4. Approval gate: user reviews and approves the plan. Execution does not start before approval.
-5. Execute: trinity per task, each in a fresh context. Waves run in parallel where the dependency graph allows.
-6. Test: mouse writes and runs tests.
-7. Review: smith adversarial pass on the full diff.
-8. Simplify: switch strips dead code and slop from the diff scope.
-9. Brain save: neo-shadow updates the second brain.
-
-**Failure protocol:** after 2 failed fix attempts on the same problem, NEO stops and consults oracle with the full failure history. After 3, NEO reverts to the last working state, documents what was tried, and asks the user. Shotgun debugging is forbidden.
+**Failure protocol:** after 2 failed fix attempts on the same problem, NEO stops all edits, re-reads the files from scratch, writes down what each attempt assumed vs what was disproved, and re-derives the fix. After 3, NEO reverts to the last working state and asks the user. Shotgun debugging is forbidden.
 
 ---
 
@@ -190,70 +122,35 @@ MUST NOT DO:      forbidden actions — anticipate rogue behavior
 CONTEXT:          file paths, patterns to follow, constraints, prior findings
 ```
 
-Specialists inherit zero history. They know nothing about the user's request, previous findings, or why. NEO pastes what matters. File paths beat descriptions. When a specialist returns work, NEO verifies it against MUST DO / MUST NOT DO before accepting.
+Specialists inherit zero history. NEO pastes what matters. File paths beat descriptions. When a specialist returns work, NEO verifies it against MUST DO / MUST NOT DO before accepting. Independent recon always runs simultaneously.
 
-Independent recon always runs simultaneously. Sequential spawning of independent work is waste.
+Every spawn is auto-logged to `.neo/runs/` by the `run-ledger.sh` hook (agent, task, verdict, summary — full report to a file when long). `/neo:recall` greps this ledger alongside the brain, so past subagent work is recoverable instead of re-done.
 
 ---
 
 ## Enforcement Model
 
-The plugin enforces constraints structurally, not just through prompts.
+Constraints are enforced structurally, not just through prompts.
 
-### Structural tool allowlists
+**Structural tool allowlists.** Each agent's frontmatter lists exactly the tools it may use. Leaf agents have no `Agent` tool, so they structurally cannot spawn.
 
-Each agent's frontmatter lists exactly the tools it may use. Leaf agents have no `Agent` tool, so they structurally cannot spawn regardless of what their prompt says.
+**Hooks** (see [hooks-reference.md](hooks-reference.md)):
+- `jail.sh` (PreToolUse) — neo-shadow may only write under `.neo/`; exit 2 blocks and feeds corrective stderr back to the agent
+- `checkpoint.sh` (Stop + PreCompact) — deterministic snapshot of branch, uncommitted files, diff stat, and the last assistant message to `.neo/CHECKPOINT.md`; reloaded at session start while fresh
+- `run-ledger.sh` (PostToolUse on Agent|Task) — appends every spawn to `.neo/runs/`
+- `stop-gate.sh` (Stop) — one-shot block when code changed but the brain was not updated
+- `brain-sync.sh` (SessionEnd) — auto-commits `.neo/brain/`
 
-### Hooks
-
-Hooks are the hard enforcement layer. See `docs/hooks-reference.md` for full details.
-
-**Jail (`jail.sh`, PreToolUse on Edit|Write|NotebookEdit):**
-- neo-shadow may only write under `.neo/`
-- architect may only write under `.neo/plans/`
-- All other agents and the main thread pass through
-- Exit 2 blocks the write and feeds the error message back to the agent as corrective feedback
-- Fail-open by design: if `agent_type` is absent from the payload or `jq` is missing, the hook allows rather than breaking every write in the session
-
-**Spawn guard (`spawn-guard.sh`, PreToolUse on Agent|Task):**
-- Blocks spawns of agents not in the NEO roster
-- Defense-in-depth: the structural guarantee (no `Agent` tool on leaves) is the primary control; this guard catches roster drift from the main thread
-- Fail-open: unrecognized payload shapes are allowed through
-
-**Stop gate (`stop-gate.sh`, Stop):**
-- One-shot: blocks completion once when code changed but the brain was not updated
-- Checks `stop_hook_active` in the payload; if true, allows immediately (no infinite loops)
-- Only fires when inside a git repo with a `.neo/brain/` directory
-
-**Brain sync (`brain-sync.sh`, SessionEnd):**
-- Auto-commits `.neo/brain/` at session end
-- Skips if `.neo/no-auto-commit` exists
-- Skips during rebase, merge, or cherry-pick
-- Never fails the session end (exits 0 on every path)
-
-### Fail-open rationale
-
-`jail.sh` reads `agent_type` from the PreToolUse stdin payload. This field has no formal stability contract in Claude Code (tracked at anthropics/claude-code#56168). The hook is fail-open by design: if the field is absent or `jq` is unavailable, the hook exits 0 and allows the write. The structural tool allowlists and the stop-gate audit of `git status` provide defense-in-depth when the jail cannot identify the agent.
+**Fail-open rationale.** `agent_type` in hook payloads has no formal stability contract in Claude Code (anthropics/claude-code#56168). Every hook exits 0 when it cannot determine what it needs (missing `jq`, unrecognized payload). A hook that breaks every write in a session is worse than one that occasionally misses a violation. Tool allowlists and the stop-gate audit provide defense-in-depth.
 
 ---
 
 ## Second Brain
 
-### Load path (zero LLM cost)
+**Load path (zero LLM cost).** `brain-load.sh` runs at `SessionStart` and cats: `BRIEF.md`, `ACTIVE.md`, `LESSONS.md`, `INDEX.md` (full), `PROGRESS.md` (last 20 lines), and `.neo/CHECKPOINT.md` when written within the last hour. `ARCHITECTURE.md`, `DECISIONS.md`, and `WORKFLOWS.md` load on demand via INDEX pointers.
 
-`brain-load.sh` runs at `SessionStart` and cats the following into context:
-- `BRIEF.md` (full)
-- `ACTIVE.md` (full)
-- `LESSONS.md` (full)
-- `INDEX.md` (full)
-- `PROGRESS.md` (last 20 lines)
+**Write path.** NEO assembles a session delta and spawns neo-shadow. One source of truth: pointers, never copies between files.
 
-`ARCHITECTURE.md`, `DECISIONS.md`, and `WORKFLOWS.md` are not loaded automatically. The INDEX points to them; NEO reads them on demand. If `WORKFLOWS.md` has `status: proposed` entries, `brain-load.sh` surfaces a one-line hint at session start.
+**Recall.** `/neo:recall` greps `.neo/brain`, `.neo/plans`, and `.neo/runs` for past decisions and work, returning `file:line` pointers.
 
-### Write path
-
-NEO assembles a session delta and spawns neo-shadow. Shadow rewrites `ACTIVE.md`, appends to `PROGRESS.md`, and updates other files only when the delta warrants it. One source of truth: pointers, never copies between files.
-
-### Sync
-
-`brain-sync.sh` runs at `SessionEnd` and commits `.neo/brain/` with the message `neo: brain sync YYYY-MM-DD`. Opt out by creating `.neo/no-auto-commit`.
+**Sync.** `brain-sync.sh` commits `.neo/brain/` at `SessionEnd` with the message `neo: brain sync YYYY-MM-DD`. Opt out by creating `.neo/no-auto-commit`.
