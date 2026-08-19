@@ -27,6 +27,13 @@ if [ -s "$BRAIN/PROGRESS.md" ]; then
   tail -n 20 "$BRAIN/PROGRESS.md"
 fi
 
+# Machine snapshot from checkpoint.sh — inject only while fresh (<1h old).
+if [ -s ".neo/CHECKPOINT.md" ] && [ -n "$(find .neo/CHECKPOINT.md -mmin -60 2>/dev/null)" ]; then
+  echo ""
+  echo "--- CHECKPOINT.md (deterministic snapshot from last session) ---"
+  cat ".neo/CHECKPOINT.md"
+fi
+
 echo ""
 echo "--- On demand (read only when needed) ---"
 echo "ARCHITECTURE.md, DECISIONS.md, and WORKFLOWS.md live in $BRAIN/ — consult INDEX above for what they hold."
