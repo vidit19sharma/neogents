@@ -28,9 +28,9 @@ body:
     attributes:
       label: Component
       options:
-        - Agent (neo / neo-shadow / keymaker / tank / architect / trinity / mouse / smith / switch / oracle / morpheus)
-        - Hook (brain-load / jail / spawn-guard / format / save-brain / stop-gate / brain-sync)
-        - Command (/neo:init / save / status / plan / review / map)
+        - Agent (neo / neo-shadow / trinity / smith)
+        - Hook (brain-load / jail / format / checkpoint / stop-gate / brain-sync)
+        - Command (/neo:init / save / status / plan / review / map / recall / gc)
         - Second brain files
         - Templates
         - Docs

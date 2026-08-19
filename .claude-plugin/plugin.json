@@ -2,7 +2,7 @@
   "name": "neo",
   "displayName": "NEO",
   "version": "0.1.0",
-  "description": "An orchestrator that runs the show and a second brain that never forgets. NEO takes over your session, delegates to a Matrix-themed specialist roster (keymaker, tank, architect, trinity, smith, oracle), and its shadow maintains persistent project memory in markdown — across sessions, compactions, and machines.",
+  "description": "An orchestrator that runs the show and a second brain that never forgets. NEO takes over your session, delegates to a lean specialist roster (trinity, smith), and its shadow maintains persistent project memory in markdown — across sessions, compactions, and machines.",
   "author": {
     "name": "vidit19sharma"
   },

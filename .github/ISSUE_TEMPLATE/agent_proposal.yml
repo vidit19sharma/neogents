@@ -19,7 +19,7 @@ body:
     id: gap
     attributes:
       label: Gap it fills
-      description: What work does no current agent (neo-shadow, keymaker, tank, architect, trinity, mouse, smith, switch, oracle, morpheus) own?
+      description: What work does no current agent (neo-shadow, trinity, smith) own?
     validations:
       required: true
   - type: textarea
