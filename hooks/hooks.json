@@ -39,6 +39,15 @@
             "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/format.sh"
           }
         ]
+      },
+      {
+        "matcher": "Agent|Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/run-ledger.sh"
+          }
+        ]
       }
     ],
     "PreCompact": [
@@ -46,7 +55,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/save-brain.sh"
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/checkpoint.sh"
           }
         ]
       }
@@ -54,6 +63,10 @@
     "Stop": [
       {
         "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/checkpoint.sh"
+          },
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/stop-gate.sh"
