@@ -20,16 +20,16 @@ This is the same trust model as any other Claude Code plugin or hook. You should
 
 - `brain-load.sh` reads files under `.neo/brain/` and prints them to stdout (injected into session context). No writes, no network.
 - `jail.sh` reads the PreToolUse payload from stdin and either exits 0 (allow) or exits 2 (block). No writes, no network.
-- `spawn-guard.sh` reads the PreToolUse payload from stdin and either exits 0 or exits 2. No writes, no network.
 - `format.sh` runs project-local formatters on the just-edited file. It uses binaries already present in your project (`node_modules/.bin/prettier`, `ruff`, `black`, `gofmt`, `rustfmt`). It never installs anything.
-- `save-brain.sh` prints a reminder message to stdout. No writes, no network.
+- `run-ledger.sh` appends subagent spawn records to `.neo/runs/`. Writes only under `.neo/runs/`, no network.
+- `checkpoint.sh` writes a snapshot of git state to `.neo/CHECKPOINT.md`. Writes only that file, no network.
 - `stop-gate.sh` reads `git status` output and either exits 0 or exits 2. No writes, no network.
 - `brain-sync.sh` runs `git add` and `git commit` on `.neo/brain/` only. No network calls, no pushes.
 
 ### What the scripts deliberately do not do
 
 - No network calls of any kind.
-- No writes outside the repo directory and `.neo/`.
+- No writes outside the repo directory and `.neo/` (`brain-sync.sh` commits `.neo/brain/`; `run-ledger.sh` and `checkpoint.sh` write under `.neo/`).
 - No installs of any software.
 - No reads of files outside the session working directory.
 - No credential access, no environment variable exfiltration.
@@ -40,14 +40,11 @@ The plugin is fail-open by design: when a hook can't determine what it needs, it
 
 ## The `agent_type` stability caveat
 
-`jail.sh` and `spawn-guard.sh` rely on the `agent_type` field in Claude Code's PreToolUse hook payload to identify which agent is making a write or spawn request. This field has no formal stability contract in Claude Code (tracked at [anthropics/claude-code#56168](https://github.com/anthropics/claude-code/issues/56168)).
+`jail.sh` relies on the `agent_type` field in Claude Code's PreToolUse hook payload to identify which agent is making a write request. This field has no formal stability contract in Claude Code (tracked at [anthropics/claude-code#56168](https://github.com/anthropics/claude-code/issues/56168)).
 
-The enforcement hooks are advisory-grade, not a sandbox. They are defense-in-depth on top of the structural controls (leaf agents have no `Agent` tool in their frontmatter; neo-shadow and architect have no `Bash` tool). If `agent_type` is absent from the payload or arrives in an unrecognized format, the hooks fail open and allow the operation.
+The enforcement hooks are advisory-grade, not a sandbox. They are defense-in-depth on top of the structural controls (leaf agents have no `Agent` tool in their frontmatter; neo-shadow has no `Bash` tool). If `agent_type` is absent from the payload or arrives in an unrecognized format, the hooks fail open and allow the operation.
 
-This means:
-
-- `jail.sh` cannot guarantee that neo-shadow or architect will never write outside their designated paths if the payload shape changes in a future Claude Code version.
-- `spawn-guard.sh` cannot guarantee that only roster agents will be spawned if the payload shape changes.
+This means `jail.sh` cannot guarantee that neo-shadow will never write outside `.neo/` if the payload shape changes in a future Claude Code version.
 
 The structural tool allowlists in agent frontmatter are the primary control. The hooks are a second layer, not the first.
 
@@ -55,9 +52,9 @@ The structural tool allowlists in agent frontmatter are the primary control. The
 
 ## Known limits
 
-**`jail.sh` and `spawn-guard.sh` are defense-in-depth, not a security boundary.**
+**`jail.sh` is defense-in-depth, not a security boundary.**
 
-A sufficiently adversarial prompt could instruct the main thread (which is not jailed) to write to any path the user has permission to write to. The main thread has full tool access by design; NEO is the session agent and needs it to do its job. The jail only constrains specific subagents (neo-shadow, architect) from writing outside their designated directories.
+A sufficiently adversarial prompt could instruct the main thread (which is not jailed) to write to any path the user has permission to write to. The main thread has full tool access by design; NEO is the session agent and needs it to do its job. The jail only constrains neo-shadow from writing outside `.neo/`.
 
 If you're running NEO in a context where you're processing untrusted input (e.g., automated pipelines that feed external content into the session), be aware that the main thread is not constrained by the jail hooks.
 

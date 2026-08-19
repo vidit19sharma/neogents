@@ -7,7 +7,7 @@
 
 An orchestrator that runs the show and a second brain that never forgets.
 
-NEO is a Claude Code plugin that turns your session into a coordinated team. It takes over the main thread, classifies every request, delegates to a Matrix-themed specialist roster, and keeps a persistent memory of your project in plain markdown files that survive context loss, compaction, and machine switches.
+NEO is a Claude Code plugin that turns your session into a coordinated team. It takes over the main thread, classifies every request, delegates to a lean specialist roster, and keeps a persistent memory of your project in plain markdown files that survive context loss, compaction, and machine switches.
 
 Zero runtime dependencies. Markdown + shell + JSON only.
 
@@ -46,15 +46,10 @@ Scaffolds `.neo/brain/` from templates, runs a short interview to fill `BRIEF.md
 |---|---|---|---|---|
 | **neo** | The One | Orchestrator. Classifies intent, delegates, verifies evidence. Main session agent. | session model | only spawner |
 | **neo-shadow** | Shadow | Memory keeper. Maintains `.neo/brain/`. Runs on the main model. | inherit | no |
-| **keymaker** | knows every door | Codebase search. Read-only. Fire 2-5 in parallel for broad recon. | haiku | no |
-| **tank** | operator | External docs, OSS examples, web research. Read-only. | haiku | no |
-| **architect** | designed the Matrix | Plan synthesis. Writes plan artifacts to `.neo/plans/`. | opus | no |
-| **trinity** | elite executor | Implements ONE plan task per fresh context. | sonnet | no |
-| **mouse** | built the training simulations | Test engineer. Designs and writes tests, runs them, reports evidence. Spawned after trinity implements or when the user asks for tests. | sonnet | no |
+| **trinity** | elite executor | Implements ONE plan task per fresh context — tests included. | sonnet | no |
 | **smith** | hunts flaws | Adversarial review. Read-only + test execution. | opus | no |
-| **switch** | not like this | Code simplifier. Behavior-preserving slop removal after smith approves and before shipping. | sonnet | no |
-| **oracle** | sees outcomes | Debugging consultant, architecture tradeoffs. Read-only. | opus | no |
-| **morpheus** | captains the ship | Git/GitHub operator. Commits, pull-before-push, batched pushes, release docs. | sonnet | no |
+
+Codebase recon uses Claude Code's built-in exploration subagents (fired 2-5 in parallel); external research uses NEO's own WebFetch/WebSearch. Planning, debugging escalation, and git shipping are rules inside neo — not separate agents.
 
 Spawn depth is capped at 2 (main thread -> specialist). Leaf agents have no `Agent` tool and cannot spawn.
 
@@ -67,10 +62,12 @@ Spawn depth is capped at 2 (main thread -> specialist). Leaf agents have no `Age
 | `/neo:init` | Scaffold `.neo/` from templates + brief interview |
 | `/neo:save` | Manual brain save via neo-shadow |
 | `/neo:status` | Brain freshness, current focus, file sizes, tooling check |
-| `/neo:plan` | Force DEEP tier: interview + architect artifact + approval gate |
+| `/neo:plan` | Force DEEP tier: interview + plan artifact + approval gate |
 | `/neo:review` | Force adversarial review via smith on current diff |
-| `/neo:map` | Fan out parallel keymakers across the codebase, then have neo-shadow rewrite `ARCHITECTURE.md` |
+| `/neo:map` | Fan out parallel exploration subagents across the codebase, then have neo-shadow rewrite `ARCHITECTURE.md` |
 | `/neo:train` | Promote a recurring workflow from `WORKFLOWS.md` into a project skill (human-gated) |
+| `/neo:gc` | Garbage-collect stale lessons: deterministic scan, then neo-shadow keeps / rewrites / archives flagged entries |
+| `/neo:recall` | Grep project memory (`.neo/brain`, `.neo/plans`, `.neo/runs`) for past decisions and work — file:line pointers, no re-exploration |
 
 ---
 
@@ -83,25 +80,22 @@ TRIVIAL  ─── 1 file, known change
              NEO edits directly + runs diagnostics
 
 STANDARD ─── 2+ files or steps, clear scope
-             keymaker/tank recon (parallel)
+             built-in exploration recon (parallel)
                └─> NEO todo-plan
-                     └─> trinity implements
-                           └─> mouse writes + runs tests (when behavior changed and test suite exists)
-                                 └─> smith reviews
+                     └─> trinity implements + tests
+                           └─> smith reviews
 
 DEEP     ─── new feature / ambiguous / architectural
              /neo:plan forces this tier
              interview (main thread, one question at a time)
-               └─> architect artifact (.neo/plans/)
+               └─> NEO writes plan artifact (.neo/plans/)
                      └─> user approval
-                           └─> trinity per task (fresh contexts, parallel waves)
-                                 └─> mouse writes + runs tests
-                                       └─> smith adversarial pass
-                                             └─> switch strips slop
-                                                   └─> neo-shadow saves brain
+                           └─> trinity per task (fresh contexts, parallel waves, tests included)
+                                 └─> smith adversarial pass
+                                       └─> neo-shadow saves brain
 ```
 
-Oracle is consulted automatically after 2 failed fix attempts at any tier.
+After 2 failed fix attempts NEO stops, re-reads the files from scratch, and re-derives the fix; after 3 it reverts and asks.
 
 ---
 
@@ -119,8 +113,9 @@ The brain lives in `.neo/brain/` inside your project. It loads at session start 
 | `ARCHITECTURE.md` | System patterns, key decisions, gotchas | When patterns change |
 | `INDEX.md` | Map of content with `[[wiki-links]]` | When structure changes |
 | `WORKFLOWS.md` | Recurring multi-step workflows; written by neo-shadow at save time, promoted to project skills via `/neo:train` | When a sequence recurs (3-sighting threshold) |
+| `FRICTION.md` | Append-only ledger of user corrections, smith BLOCKs, and escalations — evidence for improving NEO itself | When friction occurs |
 
-Plans live in `.neo/plans/YYYY-MM-DD-<slug>.md`.
+Plans live in `.neo/plans/YYYY-MM-DD-<slug>.md`. Every subagent spawn is auto-logged to `.neo/runs/` by a hook (verdict + summary, full report when long). A deterministic checkpoint (`.neo/CHECKPOINT.md` — branch, uncommitted files, diff stat, last assistant message) is written on every stop and before compaction, and reloads automatically while fresh.
 
 **Load path:** `SessionStart` hook cats `BRIEF + ACTIVE + LESSONS + INDEX` into context, plus the last 20 lines of `PROGRESS`. `ARCHITECTURE` and `DECISIONS` load on demand via INDEX pointers.
 
@@ -130,7 +125,7 @@ Plans live in `.neo/plans/YYYY-MM-DD-<slug>.md`.
 
 ## Pairs Well With
 
-- **[ponytail](https://github.com/DietrichGebert/ponytail)** — enforces a "lazy senior dev" YAGNI ruleset on all code generation. Zero overlap with NEO (NEO does orchestration + memory; ponytail constrains *what code gets written*), and its `SubagentStart` hook injects the ruleset into every agent NEO spawns — trinity, mouse, and switch get the full discipline for free. Trinity ships with a distilled version of ponytail's decision ladder built in; installing ponytail alongside adds its modes, audits, and debt ledger.
+- **[ponytail](https://github.com/DietrichGebert/ponytail)** — enforces a "lazy senior dev" YAGNI ruleset on all code generation. Zero overlap with NEO (NEO does orchestration + memory; ponytail constrains *what code gets written*), and its `SubagentStart` hook injects the ruleset into every agent NEO spawns — trinity gets the full discipline for free. Trinity ships with a distilled version of ponytail's decision ladder built in; installing ponytail alongside adds its modes, audits, and debt ledger.
 
   ```
   /plugin marketplace add DietrichGebert/ponytail
@@ -155,14 +150,16 @@ neo/
 ├── .claude-plugin/
 │   ├── plugin.json          # name "neo" -> /neo:* namespace
 │   └── marketplace.json
-├── agents/                  # 11 agent definitions
-│   ├── mouse.md
-│   └── switch.md            # (plus neo, neo-shadow, keymaker, tank, architect, trinity, smith, oracle, morpheus)
-├── skills/                  # 7 commands (init, save, status, plan, review, map, train)
+├── agents/                  # 4 agent definitions
+│   ├── neo.md
+│   ├── neo-shadow.md
+│   ├── trinity.md
+│   └── smith.md
+├── skills/                  # 9 commands (init, save, status, plan, review, map, train, gc, recall)
 │   └── map/
 ├── hooks/
 │   ├── hooks.json
-│   └── scripts/             # 7 shell scripts
+│   └── scripts/             # 8 shell scripts
 │       └── format.sh
 ├── templates/
 │   ├── brain/               # 8 brain file templates

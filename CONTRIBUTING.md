@@ -43,10 +43,10 @@ Changes to hook scripts take effect on the next session start (or next tool use,
 
 | Directory | Contents |
 |---|---|
-| `agents/` | 11 agent definitions (`*.md` with YAML frontmatter). Each file is the full system prompt for that specialist. |
-| `skills/` | 7 slash commands (`/neo:init`, `/neo:save`, `/neo:status`, `/neo:plan`, `/neo:review`, `/neo:map`, `/neo:train`). Each is a subdirectory with a `SKILL.md`. |
-| `hooks/` | `hooks.json` (event wiring) and `scripts/` (7 shell scripts that implement the enforcement layer). |
-| `templates/` | Starter files for `/neo:init`: 8 brain file templates, a `CLAUDE.md` template, and a plan template. |
+| `agents/` | 4 agent definitions (`*.md` with YAML frontmatter). Each file is the full system prompt for that specialist. |
+| `skills/` | 9 slash commands (`/neo:init`, `/neo:save`, `/neo:status`, `/neo:plan`, `/neo:review`, `/neo:map`, `/neo:train`, `/neo:gc`, `/neo:recall`). Each is a subdirectory with a `SKILL.md`. |
+| `hooks/` | `hooks.json` (event wiring) and `scripts/` (8 shell scripts that implement the enforcement layer). |
+| `templates/` | Starter files for `/neo:init`: 9 brain file templates, a `CLAUDE.md` template, and a plan template. |
 | `docs/` | Architecture, hooks reference, customization guide, brain spec, workflow walkthrough, portability notes, and the design decision log under `specs/`. |
 | `.claude-plugin/` | `plugin.json` (name, version, author) and `marketplace.json`. |
 
@@ -69,29 +69,13 @@ tools: <comma-separated list>
 ---
 ```
 
-Leaf agents must not have `Agent` in their `tools` list. The structural guarantee that leaf agents can't spawn is that they don't have the tool. `spawn-guard.sh` is defense-in-depth, not the primary control.
+Leaf agents must not have `Agent` in their `tools` list. The structural guarantee that leaf agents can't spawn is that they don't have the tool. CI enforces this check.
 
 Write the system prompt body below the frontmatter. Follow the conventions in existing agents: one job per agent, explicit MUST DO / MUST NOT DO sections, a `verify:` step in every task description.
 
-**2. Add the name to `spawn-guard.sh`**
+Before proposing a new agent, check the friction ledger idea: a new specialist should answer a recurring, evidenced pattern (user corrections, review blocks, escalations recorded in `.neo/brain/FRICTION.md`), not a hypothetical.
 
-Open `hooks/scripts/spawn-guard.sh` and add the new name to the `case` statement:
-
-```bash
-case "$AGENT" in
-  neo-shadow|keymaker|tank|architect|trinity|mouse|smith|switch|oracle|morpheus|<name>)
-    exit 0
-    ;;
-  *)
-    echo "[neo spawn-guard] '$AGENT' is not in the NEO roster. Spawnable: neo-shadow, keymaker, tank, architect, trinity, mouse, smith, switch, oracle, morpheus, <name>." >&2
-    exit 2
-    ;;
-esac
-```
-
-Both the `case` pattern and the error message must be updated. Without this step, any attempt to spawn the new agent will be blocked with a roster error.
-
-**3. Add a row to the team table in `agents/neo.md`**
+**2. Add a row to the team table in `agents/neo.md`**
 
 NEO reads its own team table to decide when to spawn each specialist. Add a row:
 
@@ -99,23 +83,23 @@ NEO reads its own team table to decide when to spawn each specialist. Add a row:
 | **<name>** | <job description> | <when to spawn> |
 ```
 
-**4. Update the README roster table**
+**3. Update the README roster table**
 
-Add a row to the Agent Roster table in `README.md` with all five columns: agent name, Matrix role, job, model, and whether it spawns (always "no" for leaf agents).
+Add a row to the Agent Roster table in `README.md`.
 
-**5. Update `docs/architecture.md`**
+**4. Update `docs/architecture.md`**
 
 Add a subsection under "Agent Roster" describing the new agent: model, tools, spawns, and responsibilities. Follow the format of the existing entries.
 
-**6. Update `docs/customization.md`**
+**5. Update `docs/customization.md`**
 
 Add a row to the "Agent Models" table.
 
-**7. Update `docs/hooks-reference.md`**
+**6. Update `docs/hooks-reference.md`**
 
-If the new agent has write restrictions (like neo-shadow or architect), document the jail policy. If not, add a note to the "Allowed agents" list in the spawn-guard section.
+If the new agent has write restrictions (like neo-shadow), document the jail policy in the `jail.sh` section.
 
-**8. Append a decision-log row in `docs/specs/2026-07-13-neo-design.md`**
+**7. Append a decision-log row in `docs/specs/2026-07-13-neo-design.md`**
 
 Add a row to the agent roster table in section 2 with the date added and a brief rationale. This is the project's decision log; it's append-only.
 
@@ -171,7 +155,7 @@ If shellcheck isn't installed, note that in the PR. It's not a hard blocker, but
 
 ## Commit style
 
-- Imperative mood, lowercase, under 65 characters: `add morpheus agent for git operations`
+- Imperative mood, lowercase, under 65 characters: `add run ledger hook for subagent spawns`
 - No AI attribution in commit messages (`Co-authored-by: Claude` and similar are not wanted).
 - One logical change per commit. Don't bundle an agent addition with an unrelated hook fix.
 
