@@ -72,6 +72,8 @@ Spawn depth is capped at 2 (main thread -> specialist). Leaf agents have no `Age
 | `/neo:map` | Fan out parallel keymakers across the codebase, then have neo-shadow rewrite `ARCHITECTURE.md` |
 | `/neo:train` | Promote a recurring workflow from `WORKFLOWS.md` into a project skill (human-gated) |
 | `/neo:gc` | Scan `LESSONS.md` for rot (dead anchors, aged, undated), then neo-shadow keeps / rewrites / archives only the flagged entries |
+| `/neo:recall` | Grep `.neo/brain`, `.neo/plans`, and `.neo/runs` for past decisions and subagent work — `file:line` pointers, no re-exploration |
+| `/neo:evolve` | Turn accumulated `FRICTION.md` evidence into ONE bounded, human-approved edit to an agent prompt, skill, or template (never hooks or CI) |
 
 ---
 
@@ -120,8 +122,9 @@ The brain lives in `.neo/brain/` inside your project. It loads at session start 
 | `ARCHITECTURE.md` | System patterns, key decisions, gotchas | When patterns change |
 | `INDEX.md` | Map of content with `[[wiki-links]]` | When structure changes |
 | `WORKFLOWS.md` | Recurring multi-step workflows; written by neo-shadow at save time, promoted to project skills via `/neo:train` | When a sequence recurs (3-sighting threshold) |
+| `FRICTION.md` | Append-only evidence ledger of corrections, review blocks, and escalations (`[F-NNN]` stable IDs); fuel for `/neo:evolve` | When the delta contains a user correction, smith BLOCK, 2-fail escalation, or revert after approval |
 
-Plans live in `.neo/plans/YYYY-MM-DD-<slug>.md`.
+Plans live in `.neo/plans/YYYY-MM-DD-<slug>.md`. Every subagent spawn is auto-logged by a hook to `.neo/runs/YYYY-MM-DD.md` (agent, task, verdict, summary — long reports get their own file). `.neo/CHECKPOINT.md` is a deterministic, machine-written snapshot of git state taken at Stop (throttled) and before compaction; it re-loads at the next session start while fresh.
 
 **Load path:** `SessionStart` hook cats `BRIEF + ACTIVE + LESSONS + INDEX` into context, plus the last 20 lines of `PROGRESS`. `ARCHITECTURE` and `DECISIONS` load on demand via INDEX pointers.
 
@@ -159,7 +162,7 @@ neo/
 ├── agents/                  # 11 agent definitions
 │   ├── mouse.md
 │   └── switch.md            # (plus neo, neo-shadow, keymaker, tank, architect, trinity, smith, oracle, morpheus)
-├── skills/                  # 8 commands (init, save, status, plan, review, map, train, gc)
+├── skills/                  # 10 commands (init, save, status, plan, review, map, train, gc, recall, evolve)
 │   └── map/
 ├── hooks/
 │   ├── hooks.json
