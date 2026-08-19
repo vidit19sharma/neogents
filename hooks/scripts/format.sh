@@ -33,9 +33,12 @@ case "$FILE" in
     fi
     ;;
   *.py)
-    if command -v ruff >/dev/null 2>&1; then
+    # Like prettier above, require project opt-in (config present) — a
+    # machine-wide ruff/black install must not reformat projects that never
+    # chose these tools.
+    if command -v ruff >/dev/null 2>&1 && { [ -f "$CWD/ruff.toml" ] || [ -f "$CWD/.ruff.toml" ] || grep -qs '\[tool\.ruff' "$CWD/pyproject.toml"; }; then
       ruff format "$FILE" >/dev/null 2>&1
-    elif command -v black >/dev/null 2>&1; then
+    elif command -v black >/dev/null 2>&1 && grep -qs '\[tool\.black\]' "$CWD/pyproject.toml"; then
       black --quiet "$FILE" >/dev/null 2>&1
     fi
     ;;
