@@ -105,6 +105,19 @@ jobs:
           echo '{"agent_type":"neo-shadow","cwd":"/w","tool_input":{"file_path":"/w/.neo/../src/app.ts"}}' | bash "$j" && { echo "should have blocked"; exit 1; } || [ $? -eq 2 ]
           # namespaced agent id handled
           echo '{"agent_type":"neo:neo-shadow","cwd":"/w","tool_input":{"file_path":"/w/src/app.ts"}}' | bash "$j" && { echo "should have blocked"; exit 1; } || [ $? -eq 2 ]
+          # symlink escape -> block (real dirs, .neo/evil -> outside)
+          jj="$PWD/$j"
+          tmp=$(mktemp -d)
+          mkdir -p "$tmp/.neo/brain" "$tmp/outside"
+          ln -s "$tmp/outside" "$tmp/.neo/evil"
+          echo "{\"agent_type\":\"neo-shadow\",\"cwd\":\"$tmp\",\"tool_input\":{\"file_path\":\"$tmp/.neo/evil/x.md\"}}" | bash "$jj" && { echo "should have blocked symlink escape"; exit 1; } || [ $? -eq 2 ]
+          # write through a symlinked file -> block
+          touch "$tmp/outside/target.md"
+          ln -s "$tmp/outside/target.md" "$tmp/.neo/brain/link.md"
+          echo "{\"agent_type\":\"neo-shadow\",\"cwd\":\"$tmp\",\"tool_input\":{\"file_path\":\"$tmp/.neo/brain/link.md\"}}" | bash "$jj" && { echo "should have blocked symlinked file"; exit 1; } || [ $? -eq 2 ]
+          # real dirs, honest write inside .neo -> allow
+          echo "{\"agent_type\":\"neo-shadow\",\"cwd\":\"$tmp\",\"tool_input\":{\"file_path\":\"$tmp/.neo/brain/ACTIVE.md\"}}" | bash "$jj"
+          rm -rf "$tmp"
 
       - name: spawn-guard.sh whitelists roster, blocks strangers
         run: |
@@ -141,3 +154,54 @@ jobs:
           git add -A && git commit -qm second
           echo note >> .neo/brain/ACTIVE.md
           echo '{}' | bash "$g"
+
+      - name: checkpoint.sh snapshots git state and throttles Stop writes
+        run: |
+          set -e
+          c="$PWD/hooks/scripts/checkpoint.sh"
+          tmp=$(mktemp -d)
+          cd "$tmp"
+          git init -q
+          git config user.email ci@neo && git config user.name ci
+          echo hello > app.py
+          git add -A && git commit -qm init
+          # no .neo -> no-op, no file written
+          echo '{"hook_event_name":"Stop"}' | bash "$c"
+          [ ! -f .neo/CHECKPOINT.md ] || { echo "wrote without .neo"; exit 1; }
+          mkdir .neo
+          # PreCompact -> writes snapshot with dirty file and last message
+          echo dirty >> app.py
+          echo '{"hook_event_name":"PreCompact","last_assistant_message":"was fixing the parser"}' | bash "$c"
+          grep -q 'event: PreCompact' .neo/CHECKPOINT.md
+          grep -q 'app.py' .neo/CHECKPOINT.md
+          grep -q 'was fixing the parser' .neo/CHECKPOINT.md
+          # Stop within the throttle window -> skipped (PreCompact content retained)
+          echo '{"hook_event_name":"Stop"}' | bash "$c"
+          grep -q 'event: PreCompact' .neo/CHECKPOINT.md
+          # a later PreCompact is never throttled
+          echo '{"hook_event_name":"PreCompact","last_assistant_message":"second pass"}' | bash "$c"
+          grep -q 'second pass' .neo/CHECKPOINT.md
+
+      - name: run-ledger.sh logs spawns and splits long reports
+        run: |
+          set -e
+          r="$PWD/hooks/scripts/run-ledger.sh"
+          tmp=$(mktemp -d)
+          cd "$tmp"
+          # no .neo -> no-op
+          echo '{"tool_input":{"subagent_type":"trinity"}}' | bash "$r"
+          [ ! -d .neo/runs ] || { echo "wrote without .neo"; exit 1; }
+          mkdir .neo
+          ledger=".neo/runs/$(date +%Y-%m-%d).md"
+          # short response -> single ledger entry with summary
+          echo '{"tool_input":{"subagent_type":"trinity","description":"fix parser"},"tool_response":"DONE: parser handles empty input"}' | bash "$r"
+          grep -q 'trinity — fix parser' "$ledger"
+          grep -q 'DONE: parser handles empty input' "$ledger"
+          # VERDICT line surfaces in the ledger
+          echo '{"tool_input":{"subagent_type":"smith","description":"review diff"},"tool_response":"VERDICT: APPROVE\nAll clear."}' | bash "$r"
+          grep -q 'VERDICT: APPROVE' "$ledger"
+          # long response -> full report file plus pointer
+          long=$(printf 'x%.0s' $(seq 1 2000))
+          echo "{\"tool_input\":{\"subagent_type\":\"smith\"},\"tool_response\":\"${long}\"}" | bash "$r"
+          grep -q 'full report:' "$ledger"
+          ls .neo/runs/*-smith-*.md >/dev/null
