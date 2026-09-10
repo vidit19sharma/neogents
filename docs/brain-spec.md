@@ -150,8 +150,11 @@ Violating this rule means the next session gets contradictory ground truth. neo-
 `brain-sync.sh` runs at `SessionEnd`. It commits `.neo/brain/` automatically if:
 
 - The project is inside a git work tree.
-- No rebase, merge, or cherry-pick is in progress.
+- `HEAD` is on a branch. On a detached `HEAD` the commit would be unreachable and the next checkout would delete the brain from the working tree, so the sync is skipped and the brain stays in the working tree for the next session to commit.
+- No rebase, merge, cherry-pick, revert, or bisect is in progress.
 - There are staged or unstaged changes under `.neo/brain/`.
+
+If the commit itself fails — most commonly `commit.gpgsign = true` with an unusable key, which `--no-verify` does not bypass — the brain is unstaged again so it cannot slip into the user's next commit.
 
 Commit message format: `neo: brain sync YYYY-MM-DD`.
 

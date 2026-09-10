@@ -64,7 +64,7 @@ Open the relevant script and change it. The scripts are plain bash with no build
 |---|---|---|---|
 | `brain-load.sh` | SessionStart | Cats brain files into context. | Yes — add files, change order, adjust the graphify detection. |
 | `jail.sh` | PreToolUse (Edit/Write) | Blocks neo-shadow and architect from writing outside their jails. | Carefully — weakening this removes a hard safety guarantee. |
-| `spawn-guard.sh` | PreToolUse (Agent) | Blocks spawns of agents not in the NEO roster. | Yes, when adding roster agents (see below). |
+| `spawn-guard.sh` | PreToolUse (Agent) | Blocks spawns of agents not in the NEO roster, in projects with a brain. | Yes, when adding roster agents (see below). |
 | `format.sh` | PostToolUse (Edit/Write) | Formats the just-edited file with project-local formatters. Fail-open. | Yes — add formatters, adjust file extensions. |
 | `save-brain.sh` | PreCompact | Injects a reminder to save the brain before compaction. | Yes — adjust the message. |
 | `stop-gate.sh` | Stop | Blocks session end when code changed but brain wasn't saved. | Yes — adjust the staleness logic. |
@@ -94,6 +94,8 @@ This is the same mechanism other Claude Code plugins use for orchestrator contro
 **Option B — override the agent in your user settings.** Claude Code user settings override plugin settings. Set `agent` to your preferred agent (or remove it) in your user settings file. The plugin stays installed; NEO just doesn't run as the session agent.
 
 When NEO isn't the session agent, the brain files still exist and the hooks still run (brain loads at session start, brain syncs at session end). Only the orchestration layer is bypassed.
+
+The hooks stay out of the way of whatever agent you do run. `spawn-guard.sh` only enforces the roster in projects that have a `.neo/brain/`, so another plugin's agents — and Claude Code's built-in subagents — spawn normally everywhere else.
 
 ---
 

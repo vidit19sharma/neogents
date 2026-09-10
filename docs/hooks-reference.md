@@ -21,7 +21,7 @@ Any other non-zero exit code is treated as an error in the hook itself, not a bl
 |---|---|---|---|
 | `SessionStart` | (all) | `brain-load.sh` | Cats brain files into context. Hints `/neo:init` if no brain. Advertises graphify if present. |
 | `PreToolUse` | `Edit\|Write\|NotebookEdit` | `jail.sh` | Hard blocks out-of-jail writes for neo-shadow and architect. |
-| `PreToolUse` | `Agent\|Task` | `spawn-guard.sh` | Blocks spawns of agents not in the NEO roster. |
+| `PreToolUse` | `Agent\|Task` | `spawn-guard.sh` | Blocks spawns of agents not in the NEO roster. Only in projects with a brain. |
 | `PostToolUse` | `Edit\|Write\|NotebookEdit` | `format.sh` | Formats the just-edited file with project-local formatters. Fail-open. |
 | `PreCompact` | (all) | `save-brain.sh` | Injects a "save brain NOW" reminder before compaction. |
 | `Stop` | (all) | `stop-gate.sh` | One-shot block when code changed but brain was not updated. |
@@ -98,18 +98,21 @@ Enforces write path restrictions for neo-shadow and architect. All other agents 
 **Matcher:** `Agent|Task`
 **Script:** `hooks/scripts/spawn-guard.sh`
 
-Blocks spawns of agents not in the NEO roster. Defense-in-depth: the primary guarantee is structural (leaf agents have no `Agent` tool in their frontmatter and cannot spawn). This guard catches roster drift from the main thread.
+Blocks spawns of agents not in the NEO roster, in projects that have a `.neo/brain/`. Defense-in-depth: the primary guarantee is structural (leaf agents have no `Agent` tool in their frontmatter and cannot spawn). This guard catches roster drift from the main thread.
 
 **Allowed agents:**
 `neo-shadow`, `keymaker`, `tank`, `architect`, `trinity`, `mouse`, `smith`, `switch`, `oracle`, `morpheus`
 
 **Behavior:**
 
-1. Checks for `jq`. If absent, exits 0 (fail-open).
-2. Reads the payload from stdin. If empty, exits 0.
-3. Extracts the agent name from `tool_input.subagent_type` or `tool_input.agent_type` (both field names have appeared across Claude Code versions).
-4. If the name is in the allowed list, exits 0.
-5. Otherwise, prints to stderr and exits 2.
+1. Checks for `.neo/brain/`. If absent, exits 0 — the project has not opted into NEO, so the roster does not apply.
+2. Checks for `jq`. If absent, exits 0 (fail-open).
+3. Reads the payload from stdin. If empty, exits 0.
+4. Extracts the agent name from `tool_input.subagent_type` or `tool_input.agent_type` (both field names have appeared across Claude Code versions).
+5. If the name is in the allowed list, exits 0.
+6. Otherwise, prints to stderr and exits 2.
+
+**Why step 1 matters:** plugin hooks are session-global. They fire for every `Agent` call in the session, including Claude Code's built-in subagents and agents supplied by other plugins, regardless of which agent is running the main thread. Without the `.neo/brain/` check, installing NEO would block every non-roster spawn in every project on the machine. Scoping the guard to projects that have a brain keeps it enforcing where NEO is actually in use and out of the way everywhere else.
 
 **stderr on block:**
 ```
@@ -220,10 +223,15 @@ Auto-commits `.neo/brain/` at the end of every session so memory survives and tr
 1. If `.neo/brain/` does not exist, exits 0.
 2. If `.neo/no-auto-commit` exists, exits 0 (opt-out).
 3. If not inside a git work tree, exits 0.
-4. Checks for in-progress git operations (rebase-merge, rebase-apply, MERGE_HEAD, CHERRY_PICK_HEAD). If any are active, exits 0 to avoid touching the index mid-operation.
-5. Checks `git status --porcelain -- .neo/brain` for any changes (tracked or untracked).
-6. If changes exist: `git add -- .neo/brain` then `git commit --no-verify --quiet -m "neo: brain sync YYYY-MM-DD" -- .neo/brain`.
-7. Exits 0 on every path. This hook must never fail the session end.
+4. If `HEAD` is detached, exits 0. See "Detached HEAD" below.
+5. Checks for in-progress git operations (rebase-merge, rebase-apply, MERGE_HEAD, CHERRY_PICK_HEAD, REVERT_HEAD, BISECT_LOG). If any are active, exits 0 to avoid touching the index mid-operation.
+6. Checks `git status --porcelain -- .neo/brain` for any changes (tracked or untracked).
+7. If changes exist: `git add -- .neo/brain` then `git commit --no-verify --quiet -m "neo: brain sync YYYY-MM-DD" -- .neo/brain`. If the commit fails, `git reset -- .neo/brain` unstages the brain again.
+8. Exits 0 on every path. This hook must never fail the session end.
+
+**Detached HEAD:** a commit made while `HEAD` is detached is not reachable from any branch. The next `git checkout` removes the newly-tracked brain files from the working tree, so the session's memory disappears from disk and survives only in the reflog. Detached `HEAD` is ordinary — reviewing a tag, inspecting an old commit, running `git bisect` — so the hook skips the commit entirely and leaves the brain uncommitted in the working tree, where the next session on a branch will pick it up and commit it.
+
+**Failed commits:** `--no-verify` skips pre-commit and commit-msg hooks, but it does **not** skip GPG signing. A repository with `commit.gpgsign = true` and an unusable key will fail the commit. Without an unstage, `git add` would leave the brain sitting in the index, and the user's next unrelated `git commit` would silently include it. The `git reset -- .neo/brain` on the failure path restores the index and leaves the working tree untouched.
 
 **Opt-out:** create `.neo/no-auto-commit` in your project root. The file's content is ignored; its presence is the signal.
 

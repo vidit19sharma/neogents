@@ -6,6 +6,10 @@
 # and structural limits are the hard guarantees, not this).
 set -uo pipefail
 
+# Plugin hooks are session-global: without this, the whitelist would also block
+# Claude Code's built-in subagents and every other plugin's agents, in every repo.
+[ -d ".neo/brain" ] || exit 0
+
 command -v jq >/dev/null 2>&1 || exit 0
 
 INPUT="$(cat 2>/dev/null || true)"

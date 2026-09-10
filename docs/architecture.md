@@ -217,6 +217,7 @@ Hooks are the hard enforcement layer. See `docs/hooks-reference.md` for full det
 
 **Spawn guard (`spawn-guard.sh`, PreToolUse on Agent|Task):**
 - Blocks spawns of agents not in the NEO roster
+- Scoped to projects with a `.neo/brain/`. Plugin hooks are session-global and fire for every `Agent` call, including Claude Code's built-in subagents and other plugins' agents; without this scope the guard would block them in every project on the machine
 - Defense-in-depth: the structural guarantee (no `Agent` tool on leaves) is the primary control; this guard catches roster drift from the main thread
 - Fail-open: unrecognized payload shapes are allowed through
 
@@ -228,7 +229,9 @@ Hooks are the hard enforcement layer. See `docs/hooks-reference.md` for full det
 **Brain sync (`brain-sync.sh`, SessionEnd):**
 - Auto-commits `.neo/brain/` at session end
 - Skips if `.neo/no-auto-commit` exists
-- Skips during rebase, merge, or cherry-pick
+- Skips during rebase, merge, cherry-pick, revert, or bisect
+- Skips on a detached `HEAD`, where the commit would dangle and the next checkout would delete the brain from the working tree
+- Unstages the brain if the commit fails, so a failed sync never leaks into the user's next commit
 - Never fails the session end (exits 0 on every path)
 
 ### Fail-open rationale

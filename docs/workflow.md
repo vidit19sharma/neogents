@@ -81,6 +81,7 @@ You send a message — NEO classifies intent, routes work
      |
 [PreToolUse / Agent|Task] spawn-guard.sh fires before every spawn
      |  blocks any agent not in the NEO roster
+     |  only in projects with a .neo/brain/ — elsewhere it passes everything through
      |
      v
 File edited
@@ -112,7 +113,8 @@ Session ends
 [SessionEnd] brain-sync.sh fires
      |  commits .neo/brain/ with "neo: brain sync YYYY-MM-DD"
      |  skips if .neo/no-auto-commit exists
-     |  skips during rebase/merge/cherry-pick
+     |  skips on detached HEAD, and during rebase/merge/cherry-pick/revert/bisect
+     |  unstages the brain again if the commit fails
      |  exits 0 on every path — never fails the session end
 ```
 
@@ -325,7 +327,7 @@ Each agent's frontmatter lists exactly the tools it may use. Leaf agents (every 
 | Hook | What it blocks | Exit on block |
 |---|---|---|
 | `jail.sh` (PreToolUse / Edit\|Write\|NotebookEdit) | neo-shadow writing outside `.neo/`; architect writing outside `.neo/plans/` | 2 (with corrective feedback to the agent) |
-| `spawn-guard.sh` (PreToolUse / Agent\|Task) | Spawns of agents not in the NEO roster | 2 (with roster list) |
+| `spawn-guard.sh` (PreToolUse / Agent\|Task) | Spawns of agents not in the NEO roster, in projects with a brain | 2 (with roster list) |
 | `stop-gate.sh` (Stop) | Session completion when code changed but brain wasn't updated | 2 (one-shot; lets through on second attempt) |
 
 `format.sh` (PostToolUse) and `brain-sync.sh` (SessionEnd) are not blocking hooks. They exit 0 on every path.

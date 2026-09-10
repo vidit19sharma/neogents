@@ -109,11 +109,95 @@ jobs:
       - name: spawn-guard.sh whitelists roster, blocks strangers
         run: |
           set -e
-          g=hooks/scripts/spawn-guard.sh
+          g="$PWD/hooks/scripts/spawn-guard.sh"
+          cd "$(mktemp -d)" && mkdir -p .neo/brain
           echo '{"tool_input":{"subagent_type":"trinity"}}' | bash "$g"
           echo '{"tool_input":{"subagent_type":"morpheus"}}' | bash "$g"
           echo '{"tool_input":{"subagent_type":"totally-rogue"}}' | bash "$g" && { echo "should have blocked"; exit 1; } || [ $? -eq 2 ]
 
+      - name: spawn-guard.sh stays out of the way in non-NEO projects
+        run: |
+          set -e
+          g="$PWD/hooks/scripts/spawn-guard.sh"
+          cd "$(mktemp -d)"
+          for a in general-purpose Explore Plan totally-rogue; do
+            if ! echo "{\"tool_input\":{\"subagent_type\":\"$a\"}}" | bash "$g"; then
+              echo "blocked '$a' in a project with no .neo/brain"; exit 1
+            fi
+          done
+
       - name: stop-gate.sh honors stop_hook_active
         run: |
           echo '{"stop_hook_active":true}' | bash hooks/scripts/stop-gate.sh
+
+      - name: brain-sync.sh never commits where the brain would be lost
+        run: |
+          set -e
+          s="$PWD/hooks/scripts/brain-sync.sh"
+          setup() {
+            cd "$(mktemp -d)"
+            git init -q .
+            git config user.email ci@example.com
+            git config user.name CI
+            mkdir -p .neo/brain
+            echo base > README.md
+            git add README.md
+            git commit -qm base
+          }
+          synced() { git log -1 --format=%s | grep -q '^neo: brain sync '; }
+
+          # baseline: on a branch, the brain is committed
+          setup
+          echo note > .neo/brain/ACTIVE.md
+          bash "$s"
+          if ! synced; then echo "normal path did not commit the brain"; exit 1; fi
+
+          # detached HEAD: the commit would dangle and checkout would delete the file
+          setup
+          branch=$(git symbolic-ref --short HEAD)
+          echo x >> README.md && git commit -qam second
+          git checkout -q --detach HEAD~1
+          echo note > .neo/brain/ACTIVE.md
+          bash "$s"
+          if synced; then echo "committed on a detached HEAD"; exit 1; fi
+          git checkout -q "$branch"
+          if [ ! -f .neo/brain/ACTIVE.md ]; then echo "brain lost on checkout"; exit 1; fi
+
+          # revert in progress: committing consumes REVERT_HEAD and strands the revert
+          setup
+          echo a > f.txt && git add f.txt && git commit -qm addf
+          echo b > f.txt && git commit -qam changef
+          git revert --no-commit HEAD
+          echo note > .neo/brain/ACTIVE.md
+          bash "$s"
+          if synced; then echo "committed during a revert"; exit 1; fi
+          git revert --continue --no-edit
+
+          # bisect in progress
+          setup
+          for i in 1 2 3; do echo $i >> f.txt; git add f.txt; git commit -qm "c$i"; done
+          git bisect start && git bisect bad && git bisect good HEAD~2
+          echo note > .neo/brain/ACTIVE.md
+          bash "$s"
+          if synced; then echo "committed during a bisect"; exit 1; fi
+          git bisect reset
+
+      - name: brain-sync.sh unstages the brain when the commit fails
+        run: |
+          set -e
+          s="$PWD/hooks/scripts/brain-sync.sh"
+          cd "$(mktemp -d)"
+          git init -q .
+          git config user.email ci@example.com
+          git config user.name CI
+          mkdir -p .neo/brain
+          echo base > README.md && git add README.md && git commit -qm base
+          # --no-verify skips hooks but not signing, so this commit fails
+          git config commit.gpgsign true
+          git config user.signingkey 0xDOESNOTEXIST
+          echo note > .neo/brain/ACTIVE.md
+          bash "$s"
+          if [ -n "$(git diff --cached --name-only)" ]; then
+            echo "left staged after a failed commit:"; git diff --cached --name-only; exit 1
+          fi
+          if [ ! -f .neo/brain/ACTIVE.md ]; then echo "unstage destroyed the working-tree file"; exit 1; fi
