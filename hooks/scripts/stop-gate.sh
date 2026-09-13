@@ -16,7 +16,12 @@ INPUT="$(cat 2>/dev/null || true)"
 if command -v jq >/dev/null 2>&1; then
   ACTIVE="$(printf '%s' "$INPUT" | jq -r '.stop_hook_active // false' 2>/dev/null || echo false)"
 else
-  case "$INPUT" in *'"stop_hook_active":true'*) ACTIVE=true ;; *) ACTIVE=false ;; esac
+  # Payloads arrive pretty-printed, so a fixed-spacing glob never matches.
+  if printf '%s' "$INPUT" | grep -qE '"stop_hook_active"[[:space:]]*:[[:space:]]*true'; then
+    ACTIVE=true
+  else
+    ACTIVE=false
+  fi
 fi
 [ "$ACTIVE" = "true" ] && exit 0
 
@@ -28,7 +33,13 @@ git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
 CODE_DIRTY="$(git status --porcelain -- ':(exclude).neo' 2>/dev/null | grep -c . || true)"
 BRAIN_DIRTY="$(git status --porcelain -- .neo/brain 2>/dev/null | grep -c . || true)"
 
-if [ "${CODE_DIRTY:-0}" -gt 0 ] && [ "${BRAIN_DIRTY:-0}" -eq 0 ]; then
+# A brain that was saved AND committed leaves nothing dirty, so dirtiness alone
+# punishes the sessions that did the right thing: a brain landed in the last
+# commit counts as saved.
+BRAIN_COMMITTED=0
+git log -1 --name-only --pretty=format: 2>/dev/null | grep -q '^\.neo/brain/' && BRAIN_COMMITTED=1
+
+if [ "${CODE_DIRTY:-0}" -gt 0 ] && [ "${BRAIN_DIRTY:-0}" -eq 0 ] && [ "$BRAIN_COMMITTED" -eq 0 ]; then
   cat >&2 <<'EOF'
 [neo stop-gate] The repo has uncommitted code changes (this session or earlier) but the second brain was not updated.
 Before finishing: spawn neo-shadow with the session delta (what happened, what changed, decisions, lessons, next steps) or run /neo:save.

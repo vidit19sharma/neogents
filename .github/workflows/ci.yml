@@ -106,11 +106,28 @@ jobs:
           echo "{\"agent_type\":\"neo-shadow\",\"cwd\":\"$tmp\",\"tool_input\":{\"file_path\":\"$tmp/.neo/brain/ACTIVE.md\"}}" | bash "$jj"
           rm -rf "$tmp"
 
-      - name: stop-gate.sh honors stop_hook_active
+      - name: stop-gate.sh honors stop_hook_active, compact and pretty-printed
         run: |
-          echo '{"stop_hook_active":true}' | bash hooks/scripts/stop-gate.sh
+          set -e
+          g="$PWD/hooks/scripts/stop-gate.sh"
+          echo '{"stop_hook_active":true}' | bash "$g"
+          # Claude Code pretty-prints payloads — the loop guard must tolerate the spacing
+          printf '{\n  "stop_hook_active": true\n}\n' | bash "$g"
+          # ...including on the jq-less fallback path, where it is the only loop guard
+          bin=$(mktemp -d)
+          for t in bash git grep cut cat sed; do ln -s "$(command -v $t)" "$bin/$t"; done
+          tmp=$(mktemp -d)
+          cd "$tmp"
+          git init -q
+          git config user.email ci@neo && git config user.name ci
+          mkdir -p .neo/brain
+          echo focus > .neo/brain/ACTIVE.md
+          git add -A && git commit -qm brain
+          echo code > app.py && git add -A && git commit -qm code
+          echo dirty >> app.py
+          printf '{\n  "stop_hook_active": true\n}\n' | env PATH="$bin" bash "$g"
 
-      - name: stop-gate.sh blocks dirty code with clean brain, allows otherwise
+      - name: stop-gate.sh blocks dirty code with an unsaved brain, allows otherwise
         run: |
           set -e
           g="$PWD/hooks/scripts/stop-gate.sh"
@@ -121,13 +138,18 @@ jobs:
           mkdir -p .neo/brain
           echo focus > .neo/brain/ACTIVE.md
           git add -A && git commit -qm init
+          # a later code commit, so HEAD itself does not count as a brain save
+          echo code > app.py && git add -A && git commit -qm code
           # clean repo -> allow
           echo '{}' | bash "$g"
           # dirty code, clean brain -> block (exit 2)
-          echo dirty > app.py
+          echo dirty >> app.py
           echo '{}' | bash "$g" && { echo "should have blocked"; exit 1; } || [ $? -eq 2 ]
           # dirty code AND dirty brain -> allow
           echo update >> .neo/brain/ACTIVE.md
+          echo '{}' | bash "$g"
+          # brain saved AND committed, code still dirty -> allow
+          git add -A -- .neo/brain && git commit -qm "neo: brain sync" -- .neo/brain
           echo '{}' | bash "$g"
           # dirty .neo only (no code changes) -> allow
           git add -A && git commit -qm second
