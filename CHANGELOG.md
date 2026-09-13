@@ -29,6 +29,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `FRICTION.md` brain file (9th): append-only evidence ledger of user corrections, smith BLOCKs, failed-fix escalations, and reverts after approval, with stable `[F-NNN]` IDs anchored to the NEO component they implicate.
 - `/neo:recall` command (9th): greps `.neo/brain`, `.neo/plans`, and `.neo/runs` for a term and answers from `file:line` pointers before re-exploring the codebase.
 - `/neo:evolve` command (10th): clusters `FRICTION.md` evidence and proposes ONE bounded, human-approved edit to an agent prompt, skill, or template — with an evidence manifest (entries cited, root cause, targeted fix, predicted impact). May never touch `hooks/`, `.claude-plugin/`, or CI.
+- Lessons carry a provenance tag — `[verified]` (corroborated across ~3 independent sessions or explicitly confirmed by the user), `[observed]` (seen once), `[assumed]` (inferred) — and an optional `(seen: N, first YYYY-MM-DD)` counter that tracks corroboration toward the `[verified]` bar.
+- `DECISIONS.md` entries require a `Reverses when:` field naming the condition that would invalidate them, giving `/neo:gc` an objective staleness check instead of relying on age alone; the redundant `Revisit if:` field is retired.
+- DEEP-tier execution now negotiates a contract per task before trinity starts: NEO gives trinity and smith the done-criteria and verify plan, smith objects once with concrete gaps until both agree, and the agreed contract is written into the plan artifact for smith's later review to check against.
+- `ACTIVE.md` gains an Open commitments checklist for promises made to the user that aren't yet delivered — edited in place, unlike the append-only `PROGRESS.md`.
+- Expanded CI: hook tests now run from a subdirectory and against pretty-printed payloads, matching how Claude Code actually invokes hooks.
+
+### Fixed
+
+- `brain-sync.sh` now guards detached HEAD and `REVERT_HEAD`/`BISECT_LOG` states (previously only rebase/merge/cherry-pick), and restores the user's own pre-existing staged files if the commit fails instead of leaving the index reset. Bugs originally diagnosed in PR #1 by Dakuaisu.
+- Every hook script except `jail.sh` now resolves the git work tree root via `git rev-parse --show-toplevel` (falling back to `CLAUDE_PROJECT_DIR`) before touching `.neo/`, so a mid-session `cd` can no longer silently disable the brain.
+- `jail.sh` fails closed on unresolvable paths instead of skipping the check, is narrowed from `.neo/` to `.neo/brain/` so neo-shadow can no longer overwrite machine- or user-owned state (`.neo/CHECKPOINT.md`, `.neo/plans/`, `.neo/runs/`, `.neo/no-auto-commit`), and strips a trailing slash from the payload `cwd` that used to defeat the prefix check.
+- `stop-gate.sh`'s jq-less loop guard now matches whitespace-tolerant `stop_hook_active` (Claude Code pretty-prints hook payloads), and no longer blocks a session that saved and committed the brain in the same turn.
+- `brain-load.sh` fences the session-start brain dump with a per-run nonce so brain content can't forge the closing marker, caps each file at 16K, and labels the dump as untrusted project data.
+- `run-ledger.sh` flattens newlines out of model-controlled fields (agent name, description, verdict, summary) before writing them, so a crafted field can no longer forge a fake ledger entry.
+- `brain-gc.sh` now counts the final lesson in `LESSONS.md` even when the file has no trailing newline.
 
 ## [0.1.0] - 2026-07-13
 
