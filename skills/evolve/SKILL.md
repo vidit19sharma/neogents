@@ -13,7 +13,7 @@ NEO's components (agent prompts, skills, templates) are files. Friction entries 
 
 1. **Guard**: no `.neo/brain/FRICTION.md` or fewer than 3 entries → say there isn't enough evidence to evolve yet and stop. Evolution on thin evidence is guessing.
 
-2. **Cluster**: read `FRICTION.md` and group entries by the component they implicate. A pattern needs **2+ entries pointing at the same component** — single incidents don't justify edits.
+2. **Cluster**: read `FRICTION.md` and group entries by the component they implicate. A pattern needs **2+ entries pointing at the same component** — single incidents don't justify edits. Cluster from FRICTION's raw entries themselves, never from a prior evolve proposal's summary of them — re-summarizing a summary compounds loss.
 
 3. **Propose ONE edit** — the most recurrent cluster only. Present an evidence manifest before touching anything:
    - **Evidence**: the `[F-NNN]` entries cited, verbatim.

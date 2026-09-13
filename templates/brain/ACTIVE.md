@@ -20,3 +20,10 @@ _Nothing in flight._
 ## Session notes
 
 <!-- Anything the NEXT session needs that fits nowhere else: half-done state, temporary workarounds, "resume at file:line". -->
+
+## Open commitments
+
+<!-- Promises made to the user not yet delivered — "I'll add X once Y", "will follow up on Z".
+     Edited in place: check off or remove when delivered. Unlike PROGRESS, this is not append-only. -->
+
+_None open._
