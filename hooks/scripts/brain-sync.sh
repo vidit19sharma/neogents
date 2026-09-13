@@ -26,20 +26,27 @@ for state in rebase-merge rebase-apply MERGE_HEAD CHERRY_PICK_HEAD REVERT_HEAD B
 done
 
 # Anything to commit under .neo/brain (tracked changes or untracked files)?
+# (With .neo/ gitignored this is always empty and the sync no-ops silently —
+# a deliberate, supported setup, not a failure.)
 if git status --porcelain -- .neo/brain 2>/dev/null | grep -q .; then
-  # What the user had staged before we touched the index, so a failed commit
-  # restores their staging instead of discarding it.
-  STAGED_BEFORE="$(git diff --cached --name-only -- .neo/brain 2>/dev/null)"
-  git add -- .neo/brain >/dev/null 2>&1 || exit 0
+  # The user's index entries — blob ids, not paths. Re-adding paths after a
+  # failed commit would stage the WORKTREE content, silently replacing what
+  # they had deliberately staged with a different version of the file.
+  # -z keeps exotic filenames intact, and NUL-delimited data cannot survive a
+  # command substitution, so it goes to a file.
+  INDEX_BEFORE="$GIT_DIR/neo-index-before.$$"
+  git ls-files -s -z -- .neo/brain > "$INDEX_BEFORE" 2>/dev/null || : > "$INDEX_BEFORE"
+  git add -- .neo/brain >/dev/null 2>&1 || { rm -f "$INDEX_BEFORE"; exit 0; }
   # --no-verify is deliberate: hooks (including secret scanners and any hook
   # that can fail) must not break session end. The brain is markdown the user
   # can inspect and amend.
   if ! git commit --no-verify --quiet -m "neo: brain sync $(date +%Y-%m-%d)" -- .neo/brain >/dev/null 2>&1; then
     git reset -q -- .neo/brain >/dev/null 2>&1
-    if [ -n "$STAGED_BEFORE" ]; then
-      printf '%s\n' "$STAGED_BEFORE" | tr '\n' '\0' | xargs -0 git add -- >/dev/null 2>&1
+    if [ -s "$INDEX_BEFORE" ]; then
+      git update-index -z --index-info < "$INDEX_BEFORE" >/dev/null 2>&1
     fi
   fi
+  rm -f "$INDEX_BEFORE"
 fi
 
 exit 0
