@@ -30,7 +30,7 @@ See also: [customization.md](customization.md) for tuning caps and sync behavior
 
 - neo-shadow **rewrites it completely** on every save. It never accumulates history.
 - Hard cap: **150 lines**. When the rewrite would exceed that, finished work migrates to `PROGRESS.md` and open questions move to `DECISIONS.md` or get dropped if resolved.
-- Sections: Focus (2-3 items max), Next (ordered queue), Open questions, Session notes.
+- Sections: Focus (2-3 items max), Next (ordered queue), Open questions, Session notes, Open commitments (checklist of promises made to the user, checked off or removed when delivered — edited in place, unlike append-only `PROGRESS.md`).
 
 ### PROGRESS.md — append-only, newest first
 
@@ -49,7 +49,7 @@ See also: [customization.md](customization.md) for tuning caps and sync behavior
 - Entry format: `- [YYYY-MM-DD] imperative + reason. (anchor)` — e.g. `- [2026-07-20] Never mock the auth client in integration tests — hides token-refresh bugs. (src/auth/client.ts)`.
   - The **datestamp** is when the lesson was learned or last confirmed true.
   - The **anchor** is an optional trailing `(path)` pointing at the file or config the lesson is about. Project-general lessons ("always run tests before pushing") don't need one.
-- **Provenance tag:** every entry carries exactly one of `[verified]` (proven by test/command output), `[observed]` (seen once, not re-confirmed), `[assumed]` (inferred, never confirmed). neo-shadow assigns the tag at write time — default `[observed]` if unsure, upgrade to `[verified]` only with evidence, `[assumed]` for inferences.
+- **Provenance tag:** every entry carries exactly one of `[verified]` (corroborated in ~3 independent sessions, or explicitly confirmed by the user — mirrors the 3-sighting rule that promotes `WORKFLOWS.md` candidates), `[observed]` (seen happen, not yet corroborated), `[assumed]` (inferred, never confirmed). neo-shadow assigns the tag at write time — default `[observed]` if unsure; promote to `[verified]` only by rewriting the entry with a fresh date once the corroboration bar is met.
 - Loaded at every session start. A stale lesson that no longer applies wastes context on every session — worse, it can steer the model wrong.
 - **Supersession on write:** when a new lesson covers the same subject or anchor as an existing one, neo-shadow **replaces** the old line (new text, today's date) instead of appending a near-duplicate. Contradictory lessons must not coexist.
 - **Staleness is detected, not guessed:** `brain-gc.sh` deterministically flags dead anchors, entries older than the age threshold (default 90 days), and undated entries. `/neo:gc` then has neo-shadow review only the flagged entries against the current codebase. Retired lessons move to `.neo/brain/archive/LESSONS.md` — never silently deleted.
