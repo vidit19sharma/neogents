@@ -14,6 +14,11 @@
 #   --summary  single summary line only (used by /neo:status)
 set -uo pipefail
 
+# Hook processes run in Claude's current directory, which follows `cd` mid-session,
+# so anchor to the repo root first (CLAUDE_PROJECT_DIR is the launch dir, not the root).
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || ROOT="${CLAUDE_PROJECT_DIR:-}"
+[ -n "$ROOT" ] && { cd "$ROOT" || exit 0; }
+
 LESSONS=".neo/brain/LESSONS.md"
 MAX_AGE_DAYS="${NEO_GC_MAX_AGE_DAYS:-90}"
 MODE="${1:-full}"

@@ -3,6 +3,11 @@
 # stdout from a SessionStart hook is injected into the session context.
 set -uo pipefail
 
+# Hook processes run in Claude's current directory, which follows `cd` mid-session,
+# so anchor to the repo root first (CLAUDE_PROJECT_DIR is the launch dir, not the root).
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || ROOT="${CLAUDE_PROJECT_DIR:-}"
+[ -n "$ROOT" ] && { cd "$ROOT" || exit 0; }
+
 BRAIN=".neo/brain"
 
 if [ ! -d "$BRAIN" ]; then
