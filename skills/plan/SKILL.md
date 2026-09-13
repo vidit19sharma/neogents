@@ -24,4 +24,4 @@ Write the plan artifact yourself to `.neo/plans/YYYY-MM-DD-<slug>.md`, following
 
 Present the plan summary: goal, wave schedule, task count, risks. Resolve any remaining open questions with the user and update the artifact before proceeding.
 
-**Do not execute until the user approves the plan.** On approval, negotiate the sprint contract per task with trinity and smith — done-criteria and verify plan, revised until both agree, written into the plan artifact — then execute wave by wave: trinity per task (fresh context each, tests included), smith after the final wave against the recorded contracts. After two failed fixes on the same problem, stop and re-derive from scratch per the failure protocol.
+**Do not execute until the user approves the plan.** On approval, negotiate the contract per task with trinity and smith — done-criteria and verify plan, revised until both agree, written into the plan artifact — then execute wave by wave: trinity per task (fresh context each, tests included), smith after the final wave against the recorded contracts. After two failed fixes on the same problem, stop and re-derive from scratch per the failure protocol.
