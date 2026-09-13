@@ -268,6 +268,7 @@ Create `.neo/no-auto-commit` in your project root. The file's presence is the si
 | `/neo:evolve` | When `FRICTION.md` accumulates 3+ entries — proposes ONE bounded, evidence-backed edit to an agent prompt, skill, or template (human-gated; never hooks or CI) |
 | `/neo:train` | When neo-shadow flags a proposed workflow; shows a draft for approval before writing anything |
 | `/neo:gc` | When `/neo:status` flags lesson rot — scans for dead anchors and aged entries, then neo-shadow keeps / rewrites / archives only the flagged ones |
+| `/neo:equip` | When the project needs a capability someone else already wrote a skill for — shortlist, smith audit, then a pinned vendored copy in `.claude/skills/`. Never auto-invoked |
 
 ---
 
