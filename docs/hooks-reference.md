@@ -170,4 +170,19 @@ Invoked by the `/neo:gc` skill (full report) and `/neo:status` (`--summary`). De
 
 ---
 
+## Hook scoping: why every hook stays in `hooks.json`
+
+Claude Code offers two newer ways to narrow a hook. Both were evaluated against this plugin and both are deliberately unused. Read this before moving a hook out of `hooks.json`.
+
+**Hooks in component frontmatter.** A skill or subagent can declare its own `hooks:` block — a subagent's hooks run "only while that subagent is running." Co-locating `jail.sh` in `agents/neo-shadow.md` looks like the natural fit, since the jail only matters while neo-shadow runs. It does not work here: NEO ships its agents inside a plugin, and the Claude Code subagent reference states that "for security reasons, plugin subagents don't support the `hooks`, `mcpServers`, or `permissionMode` frontmatter fields. These fields are ignored when loading agents from a plugin." A frontmatter jail would be silently dropped rather than enforced — strictly worse than the current wiring. Plugin hooks declared in `hooks.json` *do* fire inside subagents and receive `agent_type` in the payload, which is exactly what `jail.sh` keys on.
+
+**The `if:` conditional.** A hook handler may carry an `if:` field holding one permission rule (`"Bash(git *)"`, `"Edit(*.ts)"`) so the process only spawns when the tool call matches. Neither of this plugin's tool hooks benefits:
+
+- `jail.sh` discriminates on `agent_type`, which permission-rule syntax cannot express. The reference is also explicit that the filter is advisory — "because the `if` filter is best-effort, use the permission system rather than a hook to enforce a hard allow or deny" — so an `if:` must never carry enforcement weight.
+- `format.sh` would need one handler per extension per tool. `if:` holds exactly one rule with no list, `&&`, `||`, or negation syntax, and cannot express the `.neo/` exclusion at all. Nineteen extensions across `Edit|Write|NotebookEdit` is 57 handlers replacing one `case` statement, and the `.neo/` guard would still have to live in the script.
+
+In-script filtering stays the single source of truth for both. Revisit only if `if:` gains negation or an agent-identity predicate.
+
+---
+
 Every hook in this plugin is fail-open. When a hook cannot determine the information it needs (missing `jq`, unrecognized payload shape, absent `agent_type`), it exits 0 and allows the operation. A hook that breaks every write or spawn in a session because of a Claude Code version change is worse than a hook that occasionally misses a violation. Structural tool allowlists and the stop-gate's post-hoc audit provide defense-in-depth.

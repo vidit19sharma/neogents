@@ -144,6 +144,14 @@ Constraints are enforced structurally, not just through prompts.
 
 **Fail-open rationale.** `agent_type` in hook payloads has no formal stability contract in Claude Code (anthropics/claude-code#56168). Every hook exits 0 when it cannot determine what it needs (missing `jq`, unrecognized payload). A hook that breaks every write in a session is worse than one that occasionally misses a violation. Tool allowlists and the stop-gate audit provide defense-in-depth.
 
+**Maintenance skills are not forked.** Claude Code skills support `context: fork`, which runs the skill body as the prompt of a fresh subagent, in the background by default (`background: false` waits instead). `/neo:gc`, `/neo:train`, and `/neo:evolve` are long-running and look like candidates, but each breaks under a fork:
+
+- All three delegate to neo-shadow via the `Agent` tool. A backgrounded fork runs with the narrower background-subagent tool set, which has no `Agent` tool — and NEO caps spawn depth at 2 regardless.
+- `/neo:train` (step 4) and `/neo:evolve` (step 5) are human-gated: nothing is written without an explicit yes. `AskUserQuestion` is stripped from every subagent, and a forked skill does not see the conversation, so the gate would have nothing to gate on.
+- Restructuring `/neo:gc` as `context: fork` with `agent: neo-shadow` would sidestep the `Agent` tool, but the `agent` field is documented only for built-in types and subagents in `.claude/agents/` — not for plugin-namespaced ones. An unresolved `agent` falls back to `general-purpose`, which `jail.sh` does not jail. That trades a bounded, jailed writer for an unjailed one on an undocumented behavior.
+
+The skills stay inline. Revisit if the `agent` field's handling of plugin subagents is documented.
+
 ---
 
 ## Second Brain

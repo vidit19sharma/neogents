@@ -64,6 +64,8 @@ The plugin manifest format is Claude Code specific. A new harness needs its own 
 
 The brain files, agent prose, skill files, and templates are all harness-neutral and require no changes.
 
+**The list stays at three on purpose.** Claude Code lets a skill or subagent declare hooks in its own frontmatter, which would scatter enforcement across `agents/*.md` and `skills/*/SKILL.md` and turn three swap points into a dozen. That route is closed for this plugin anyway — plugin subagents ignore frontmatter `hooks` — so every hook stays declared in `hooks/hooks.json`. See [hooks-reference.md](hooks-reference.md#hook-scoping-why-every-hook-stays-in-hooksjson). An adapter author swaps one file, not a component tree.
+
 ---
 
 ## What Stays the Same Across Harnesses
