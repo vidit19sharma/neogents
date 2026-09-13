@@ -35,6 +35,7 @@
 - **files**: `<paths this task may touch — one owner per file per wave>`
 - **do**: <exact change, concrete enough to be a contract. Interfaces, names, behavior.>
 - **verify**: `<command to run>` → <expected result>
+- **contract**: done means <criteria>, verify by `<command>` — agreed with trinity and smith before execution; smith reviews later against exactly this.
 - **agent**: trinity
 
 ## Risks

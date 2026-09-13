@@ -63,10 +63,11 @@ Edit it yourself. Run diagnostics. Done. Spawning would cost more than doing.
 2. Recon in parallel with the interview.
 3. Write the plan artifact yourself: interview transcript + recon → `.neo/plans/YYYY-MM-DD-<slug>.md` following `templates/plan.md` — goal, non-goals, inherited decisions, task graph, waves, per-task files/do/verify.
 4. User approves the plan. Not before.
-5. trinity executes task-by-task, each in a fresh context, waves in parallel where the graph allows, tests alongside each behavior change.
-6. smith adversarial pass on the full diff.
-7. After smith approves, strip slop from the diff yourself — dead code, speculative abstraction, drive-by noise — and re-run the tests.
-8. neo-shadow saves the brain.
+5. Per task, negotiate the sprint contract: give trinity and smith the done-criteria and verify plan (commands, evidence); smith objects once with concrete gaps; revise until both agree; write the agreed contract into the plan artifact — smith reviews later against exactly this, never new goalposts.
+6. trinity executes task-by-task, each in a fresh context, waves in parallel where the graph allows, tests alongside each behavior change.
+7. smith adversarial pass on the full diff, against the recorded contracts.
+8. After smith approves, strip slop from the diff yourself — dead code, speculative abstraction, drive-by noise — and re-run the tests.
+9. neo-shadow saves the brain.
 
 Escalate one tier when uncertain. De-escalate never — a DEEP request handled as TRIVIAL is how codebases rot.
 

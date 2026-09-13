@@ -190,18 +190,23 @@ NEO edits directly and runs diagnostics. Spawning would cost more than doing. Th
    NEO presents the plan summary: goal, wave schedule, task count, risks
    Execution does not start before user approval
 
-4. Execute
+4. Sprint contract
+   Per task, NEO gives trinity and smith the done-criteria and verify plan
+   Smith objects once with concrete gaps; revise until both agree
+   Agreed contract is written into the plan artifact — smith reviews against exactly this later
+
+5. Execute
    trinity per task, each in a fresh context, tests included
    Waves run in parallel where the dependency graph allows
 
-5. Review
-   smith adversarial pass on the full diff
+6. Review
+   smith adversarial pass on the full diff, against the recorded contracts
 
-6. Simplify
+7. Simplify
    After approval, NEO strips dead code and slop from the diff scope itself,
    then re-runs the tests
 
-7. Brain save
+8. Brain save
    NEO assembles session delta, spawns neo-shadow
 ```
 
@@ -315,19 +320,21 @@ Here's the full trace through DEEP tier.
 
 **4. Approval gate.** NEO presents the plan summary. You approve.
 
-**5. Execute (Wave 1 — parallel).** NEO spawns trinity twice in the same message: instance A implements the rate-limit middleware plus its tests; instance B writes the config schema plus its tests. Each receives the full 6-section delegation contract with exact file paths and verify steps. They know nothing about each other or the broader request. `run-ledger.sh` logs both spawns to `.neo/runs/`. After each file write, `format.sh` runs the project formatter.
+**5. Sprint contract.** Before Wave 1 starts, NEO gives trinity and smith each task's done-criteria and verify plan — e.g. the middleware task: "returns 429 past the limit, verified by `npm test -- rate-limit`". Smith objects once on a concrete gap (the config-schema task's criteria miss a malformed Redis URL); NEO revises until both agree. The agreed contracts go into the plan artifact.
 
-**6. Execute (Wave 2 — sequential).** Trinity instance C wires the middleware into the app, depending on Wave 1 outputs, and covers the wiring with a test. NEO verifies trinity's report against MUST DO / MUST NOT DO before accepting.
+**6. Execute (Wave 1 — parallel).** NEO spawns trinity twice in the same message: instance A implements the rate-limit middleware plus its tests; instance B writes the config schema plus its tests. Each receives the full 6-section delegation contract with exact file paths and verify steps. They know nothing about each other or the broader request. `run-ledger.sh` logs both spawns to `.neo/runs/`. After each file write, `format.sh` runs the project formatter.
 
-**7. Review.** NEO spawns smith with the full diff. Smith reads every changed file, runs the test suite, checks whether the rate-limit pattern was replicated correctly across similar routes, and delivers `VERDICT: APPROVE` or `VERDICT: BLOCK` with `file:line` evidence for every blocking item.
+**7. Execute (Wave 2 — sequential).** Trinity instance C wires the middleware into the app, depending on Wave 1 outputs, and covers the wiring with a test. NEO verifies trinity's report against MUST DO / MUST NOT DO before accepting.
 
-**8. Simplify.** Smith approves. NEO strips dead code, needless abstraction, and comment slop from the diff scope itself, then re-runs the tests.
+**8. Review.** NEO spawns smith with the full diff. Smith reads every changed file, runs the test suite against the recorded contracts, checks whether the rate-limit pattern was replicated correctly across similar routes, and delivers `VERDICT: APPROVE` or `VERDICT: BLOCK` with `file:line` evidence for every blocking item.
 
-**9. Brain save.** NEO assembles the session delta: what was built, which files changed, the Redis decision and why, where to pick up next. Spawns neo-shadow, which rewrites `ACTIVE.md`, appends to `PROGRESS.md`, and records the Redis decision in `DECISIONS.md`. `jail.sh` fires on every neo-shadow write; all paths are under `.neo/`, so it exits 0.
+**9. Simplify.** Smith approves. NEO strips dead code, needless abstraction, and comment slop from the diff scope itself, then re-runs the tests.
 
-**10. Stop gate.** NEO finishes responding. Code is dirty (new middleware files), brain is also dirty (neo-shadow just updated it). Gate condition — code dirty AND brain clean — doesn't hold, so the session completes.
+**10. Brain save.** NEO assembles the session delta: what was built, which files changed, the Redis decision and why, where to pick up next. Spawns neo-shadow, which rewrites `ACTIVE.md`, appends to `PROGRESS.md`, and records the Redis decision in `DECISIONS.md`. `jail.sh` fires on every neo-shadow write; all paths are under `.neo/`, so it exits 0.
 
-**11. Session end.** `brain-sync.sh` commits `.neo/brain/` with `neo: brain sync 2026-07-13`. Next session opens with the updated brain already in context.
+**11. Stop gate.** NEO finishes responding. Code is dirty (new middleware files), brain is also dirty (neo-shadow just updated it). Gate condition — code dirty AND brain clean — doesn't hold, so the session completes.
+
+**12. Session end.** `brain-sync.sh` commits `.neo/brain/` with `neo: brain sync 2026-07-13`. Next session opens with the updated brain already in context.
 
 ---
 
