@@ -37,7 +37,7 @@ THRESHOLD="$(date -d "-${MAX_AGE_DAYS} days" +%F 2>/dev/null \
 total=0; aged=0; dead=0; undated=0
 report=""
 
-while IFS= read -r line; do
+while IFS= read -r line || [ -n "$line" ]; do
   # Only bullet entries are lessons; headers/comments/prose are skipped.
   case "$line" in
     "- "*) ;;
