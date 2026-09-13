@@ -56,9 +56,15 @@ while IFS= read -r line || [ -n "$line" ]; do
     flags="AGED"
   fi
 
+  # Corroborated lessons carry a trailing "(seen: N, first YYYY-MM-DD)" suffix.
+  # It is the LAST parenthetical and it contains spaces, so leaving it in place
+  # makes the anchor match below reject the entry and skip the dead-anchor check
+  # on exactly the lessons that have been confirmed most often.
+  bare="$(printf '%s' "$line" | sed 's/[[:space:]]*([Ss]een:[^)]*)[[:space:]]*$//')"
+
   # Evidence anchor: trailing "(path)" — must look like a path (has / or .),
   # no spaces, so parentheticals like "(unverified)" are not treated as anchors.
-  anchor="$(printf '%s' "$line" | sed -n 's/.*(\([^()]*\))[[:space:]]*$/\1/p')"
+  anchor="$(printf '%s' "$bare" | sed -n 's/.*(\([^()]*\))[[:space:]]*$/\1/p')"
   case "$anchor" in
     "" | *" "*) anchor="" ;;
     */* | *.*) ;;

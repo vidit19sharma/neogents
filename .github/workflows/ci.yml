@@ -439,6 +439,24 @@ jobs:
           printf -- '- [2020-01-01] first lesson\n- [2020-01-02] last lesson, no trailing newline' > .neo/brain/LESSONS.md
           bash "$gc" --summary | grep -q '^2 lessons' || { echo "dropped the unterminated final lesson"; exit 1; }
 
+      - name: brain-gc.sh sees the anchor behind a seen-count suffix
+        run: |
+          set -e
+          gc="$PWD/hooks/scripts/brain-gc.sh"
+          tmp=$(mktemp -d)
+          cd "$tmp"
+          git init -q
+          mkdir -p .neo/brain
+          echo alive > README.md
+          {
+            printf -- '- [2030-01-01] dead anchor, corroborated (src/gone.ts) (seen: 3, first 2026-01-01)\n'
+            printf -- '- [2030-01-01] live anchor, corroborated (README.md) (seen: 9, first 2026-01-01)\n'
+            printf -- '- [2030-01-01] no anchor, just prose (unverified) (Seen: 2, first 2026-01-01)\n'
+          } > .neo/brain/LESSONS.md
+          out="$(bash "$gc")"
+          printf '%s' "$out" | grep -q 'DEAD-ANCHOR | - \[2030-01-01\] dead anchor' || { echo "seen-suffix hid a dead anchor"; exit 1; }
+          printf '%s' "$out" | grep -q '^3 lessons: 1 dead anchors' || { echo "wrong dead-anchor count: $out"; exit 1; }
+
       - name: brain-sync.sh skips unsafe git states and recovers from failed commits
         run: |
           set -e
