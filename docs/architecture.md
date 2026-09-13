@@ -55,7 +55,7 @@ Shadow receives a session delta from NEO and:
 
 **Garbage collection:** `/neo:gc` runs `brain-gc.sh` — a deterministic staleness scan of `LESSONS.md` — then spawns shadow to KEEP / REWRITE / ARCHIVE flagged entries. See [brain-spec.md](brain-spec.md).
 
-Shadow is jailed to `.neo/` by the `jail.sh` hook. It cannot touch source code even if instructed to.
+Shadow is jailed to `.neo/brain/` by the `jail.sh` hook. It cannot touch source code, and it cannot touch machine- or user-owned state elsewhere under `.neo/` (`.neo/CHECKPOINT.md`, `.neo/plans/`, `.neo/runs/`, `.neo/no-auto-commit`) even if instructed to.
 
 ### trinity (`agents/trinity.md`)
 
@@ -135,8 +135,10 @@ Constraints are enforced structurally, not just through prompts.
 
 **Structural tool allowlists.** Each agent's frontmatter lists exactly the tools it may use. Leaf agents have no `Agent` tool, so they structurally cannot spawn.
 
+Hook processes inherit Claude's current working directory, which follows a mid-session `cd`. Every script except `jail.sh` (which takes its root from the payload's `cwd`) anchors to the git work tree root (`git rev-parse --show-toplevel`, falling back to `CLAUDE_PROJECT_DIR`) before touching `.neo/`, so a stray `cd` can't silently disable the brain.
+
 **Hooks** (see [hooks-reference.md](hooks-reference.md)):
-- `jail.sh` (PreToolUse) — neo-shadow may only write under `.neo/`; exit 2 blocks and feeds corrective stderr back to the agent
+- `jail.sh` (PreToolUse) — neo-shadow may only write under `.neo/brain/`; fails closed on unresolvable paths; exit 2 blocks and feeds corrective stderr back to the agent
 - `checkpoint.sh` (Stop + PreCompact) — deterministic snapshot of branch, uncommitted files, diff stat, and the last assistant message to `.neo/CHECKPOINT.md`; reloaded at session start while fresh
 - `run-ledger.sh` (PostToolUse on Agent|Task) — appends every spawn to `.neo/runs/`
 - `stop-gate.sh` (Stop) — one-shot block when code changed but the brain was not updated

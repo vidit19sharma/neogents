@@ -221,7 +221,7 @@ The brain lives in `.neo/brain/` as plain markdown files. It's yours. Nothing is
 | File | What it holds | When it changes |
 |---|---|---|
 | `BRIEF.md` | Scope, goals, constraints, non-goals | Pivots only |
-| `ACTIVE.md` | Current focus, next steps, open questions | Every save (full rewrite, 150-line cap) |
+| `ACTIVE.md` | Current focus, next steps, open questions, open commitments | Every save (full rewrite, 150-line cap) |
 | `PROGRESS.md` | Append-only ledger of what shipped, dated | As work completes |
 | `DECISIONS.md` | Significant choices with rationale and rejected alternatives | When a decision is made |
 | `LESSONS.md` | Anti-patterns learned the hard way, dated and anchored | When a mistake teaches something reusable |

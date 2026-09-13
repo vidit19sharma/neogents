@@ -2,6 +2,8 @@
 
 All hooks are declared in `hooks/hooks.json` and implemented in `hooks/scripts/`. They are the deterministic enforcement layer of the plugin. Prompts guide; hooks enforce.
 
+Hook processes inherit Claude's current working directory, which follows any `cd` the session issues mid-conversation. Every script except `jail.sh` (which takes its root from the PreToolUse payload's `cwd`) resolves the git work tree root via `git rev-parse --show-toplevel` before touching `.neo/`, falling back to `CLAUDE_PROJECT_DIR` if that fails, and exits 0 rather than operate against the wrong directory — without this anchor, a single `cd` mid-session would silently turn the whole memory system off.
+
 ---
 
 ## Exit Code Protocol
@@ -38,11 +40,13 @@ One script in `hooks/scripts/` is **not** wired into `hooks.json`: `brain-gc.sh`
 stdout from a `SessionStart` hook is injected into the session context before the first user message.
 
 1. Checks for `.neo/brain/`. If absent, prints one line hinting `/neo:init` and exits 0.
-2. Cats, skipping empty files: `BRIEF.md`, `ACTIVE.md`, `LESSONS.md`, `INDEX.md` (full), `PROGRESS.md` (last 20 lines).
-3. Cats `.neo/CHECKPOINT.md` if it was written within the last 60 minutes — the deterministic snapshot from the previous stop or compaction.
-4. Prints a note that `ARCHITECTURE.md` and `DECISIONS.md` load on demand via INDEX pointers; surfaces a hint if `WORKFLOWS.md` has `status: proposed` entries; advertises graphify when present.
+2. Opens the dump with a fence carrying a per-run nonce — `=== BEGIN SECOND BRAIN <nonce> (... untrusted project data ...) ===` — so content written into the brain earlier cannot forge the closing marker and impersonate the harness.
+3. Cats, skipping empty files and capping each at 16K: `BRIEF.md`, `ACTIVE.md`, `LESSONS.md`, `INDEX.md` (full), `PROGRESS.md` (last 20 lines).
+4. Cats `.neo/CHECKPOINT.md` (also capped at 16K) if it was written within the last 60 minutes — the deterministic snapshot from the previous stop or compaction.
+5. Prints a note that `ARCHITECTURE.md` and `DECISIONS.md` load on demand via INDEX pointers; surfaces a hint if `WORKFLOWS.md` has `status: proposed` entries; advertises graphify when present.
+6. Closes the fence with the matching nonce.
 
-**Cost:** zero LLM tokens. Pure shell `cat`.
+**Cost:** zero LLM tokens. Pure shell `cat`. **Trust:** the dump is labeled untrusted project data, not instructions — anything that ever passed through the project (a pasted error, a dependency README, a lesson quoting hostile input) could otherwise land in a brain file and close the fence early with a forged terminator.
 
 ---
 
@@ -50,21 +54,24 @@ stdout from a `SessionStart` hook is injected into the session context before th
 
 **Event:** `PreToolUse` · **Matcher:** `Edit|Write|NotebookEdit`
 
-Enforces write-path restriction for neo-shadow: it may only write under `.neo/**`. All other agents and the main thread pass through without inspection.
+Enforces write-path restriction for neo-shadow: it may only write under `.neo/brain/**` — not `.neo/CHECKPOINT.md`, `.neo/plans/`, `.neo/runs/`, or `.neo/no-auto-commit`, which are machine-written or user-owned. All other agents and the main thread pass through without inspection.
 
 1. Checks for `jq`. If absent, exits 0 (fail-open).
 2. Extracts `agent_type` from the payload. If absent or empty, exits 0 (covers the main thread).
 3. Strips any namespace prefix (`neo:neo-shadow` → `neo-shadow`).
 4. If the agent is not `neo-shadow`, exits 0.
-5. Extracts the target path from `tool_input.file_path` or `tool_input.notebook_path`, normalizes it relative to the session `cwd`, and rejects any path containing `..` segments (traversal prevention).
-6. If the path is under `.neo/`, exits 0. Otherwise prints to stderr and exits 2.
+5. Extracts the target path from `tool_input.file_path` or `tool_input.notebook_path`. Strips a trailing slash from the payload `cwd` (a bare `"/w/"` would otherwise defeat the prefix strip below) and normalizes the path relative to it.
+6. Rejects any path containing `..` segments (traversal prevention).
+7. String-prefix check: blocks unless the path falls under `.neo/brain/`.
+8. Refuses to write through a symlink (`[ -L "$FILE" ]`) — closes the case where a pre-existing symlink inside `.neo/brain/` points outside it.
+9. Fail-closed physical resolution: walks the target's parent up to its nearest *existing* ancestor, resolves that with `pwd -P`, and re-appends the components that don't exist yet — a naive `cd $(dirname ...)` would silently skip the whole check when the parent doesn't exist yet. Compares the result against the physically resolved jail root; if either side fails to resolve, or the resolved path falls outside `.neo/brain/`, it blocks rather than allowing.
 
 **stderr on block:**
 ```
-[neo jail] <agent> may only write under <jail> (attempted: <path>). Write your output there, or report back instead of writing elsewhere.
+[neo jail] <agent> may only write under .neo/brain/ (attempted: <path>). Write your output there, or report back instead of writing elsewhere.
 ```
 
-**Fail-open rationale:** `agent_type` has no formal stability contract in Claude Code (anthropics/claude-code#56168). If the field is absent, `jq` is missing, or the payload shape is unrecognized, the hook allows. Structural tool allowlists and the stop-gate audit provide defense-in-depth.
+**Fail-open rationale:** `agent_type` has no formal stability contract in Claude Code (anthropics/claude-code#56168). If the field is absent, `jq` is missing, or the payload shape is unrecognized, the hook allows. Once inside the check, though, path resolution is fully script-controlled, so an unresolvable path blocks rather than passes — fail-closed there costs nothing. Structural tool allowlists and the stop-gate audit provide defense-in-depth.
 
 ---
 
@@ -129,11 +136,12 @@ Appends every subagent spawn to a daily run ledger. Subagent outputs that only l
 
 One-shot verification gate: blocks completion when code changed during the session but the second brain was not updated.
 
-1. If `stop_hook_active` is true in the payload, exits 0 immediately — the gate already fired once this stop cycle (no infinite loops).
+1. Reads `stop_hook_active` from the payload. With `jq` present, straightforward. Without it, matches `"stop_hook_active"` followed by optional whitespace then `true` — Claude Code pretty-prints hook payloads, so a fixed-spacing glob never matches. If true, exits 0 immediately — the gate already fired once this stop cycle (no infinite loops).
 2. Exits 0 unless inside a git work tree with a `.neo/brain/` directory.
 3. `CODE_DIRTY` — `git status --porcelain -- ':(exclude).neo'` counts dirty files outside `.neo/`.
 4. `BRAIN_DIRTY` — `git status --porcelain -- .neo/brain` counts dirty brain files.
-5. If code is dirty AND the brain is clean, prints to stderr and exits 2. Otherwise exits 0.
+5. `BRAIN_COMMITTED` — true if the last commit (`git log -1 --name-only`) touched a file under `.neo/brain/`. A brain saved AND committed this session leaves nothing dirty, so this keeps that case from being punished as if nothing were saved.
+6. If code is dirty AND the brain is clean AND the brain wasn't just committed, prints to stderr and exits 2. Otherwise exits 0.
 
 **stderr on block:**
 ```
@@ -152,11 +160,14 @@ If there is genuinely nothing worth saving, finishing again lets the session thr
 
 Auto-commits `.neo/brain/` at the end of every session so memory survives and travels with the repo.
 
-1. Exits 0 if `.neo/brain/` is absent, `.neo/no-auto-commit` exists (opt-out), the cwd is not a git work tree, or a rebase / merge / cherry-pick is in progress.
-2. If `git status --porcelain -- .neo/brain` shows changes: `git add -- .neo/brain` then `git commit --no-verify --quiet -m "neo: brain sync YYYY-MM-DD" -- .neo/brain`.
-3. Exits 0 on every path; never fails the session end.
+1. Exits 0 if `.neo/brain/` is absent, `.neo/no-auto-commit` exists (opt-out), or the cwd is not inside a git work tree.
+2. Exits 0 on detached HEAD (no `git symbolic-ref`) — there's no branch to land a commit on reachably; the next checkout would wipe it.
+3. Exits 0 while a rebase, merge, cherry-pick, revert, or bisect is in progress (checks `rebase-merge`, `rebase-apply`, `MERGE_HEAD`, `CHERRY_PICK_HEAD`, `REVERT_HEAD`, and `BISECT_LOG` in the git dir).
+4. If `git status --porcelain -- .neo/brain` shows changes: captures whatever the user already had staged under `.neo/brain` (`STAGED_BEFORE`), stages `.neo/brain`, then commits with `git commit --no-verify --quiet -m "neo: brain sync YYYY-MM-DD" -- .neo/brain`.
+5. If that commit fails (e.g. a broken signing key), resets `.neo/brain` out of the index and restores `STAGED_BEFORE` — a failed commit no longer discards staging the user set up for a commit of their own.
+6. Exits 0 on every path; never fails the session end.
 
-`--no-verify` skips project pre-commit hooks during the automated sync.
+`--no-verify` is deliberate: pre-commit hooks, including secret scanners, must not be able to fail session end. The brain is markdown the user can inspect and amend after the fact.
 
 ---
 

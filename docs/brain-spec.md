@@ -32,11 +32,11 @@ See also: [customization.md](customization.md) for tuning caps and sync behavior
 - Hard cap: **150 lines**. When the rewrite would exceed that, finished work migrates to `PROGRESS.md` and open questions move to `DECISIONS.md` or get dropped if resolved.
 - Sections: Focus (2-3 items max), Next (ordered queue), Open questions, Session notes, Open commitments (checklist of promises made to the user, checked off or removed when delivered — edited in place, unlike append-only `PROGRESS.md`).
 
-### PROGRESS.md — append-only, newest first
+### PROGRESS.md — append-only, newest last
 
-- New entries go at the **top**, under a `## YYYY-MM-DD` heading.
+- New entries go at the **bottom**, under a `## YYYY-MM-DD` heading.
 - **Never edit or delete old entries.** This file is the project's memory of what actually happened.
-- Session loads read only the most recent entries (tail-20 via `brain-load.sh`). Age is harmless.
+- Session loads read only the most recent entries — `brain-load.sh` tails the last 20 lines, so the newest entries are what loads. Age is harmless.
 - Entry format: terse past-tense bullets. "Added JWT refresh rotation (`src/auth/refresh.ts`); all 14 auth tests green." Not "improved the auth flow."
 
 ### ARCHITECTURE.md — audit at 500 lines
@@ -46,9 +46,10 @@ See also: [customization.md](customization.md) for tuning caps and sync behavior
 
 ### LESSONS.md — every line pays rent
 
-- Entry format: `- [YYYY-MM-DD] imperative + reason. (anchor)` — e.g. `- [2026-07-20] Never mock the auth client in integration tests — hides token-refresh bugs. (src/auth/client.ts)`.
+- Entry format: `- [YYYY-MM-DD] [tag] imperative + reason. (anchor) (seen: N, first YYYY-MM-DD)` — e.g. `- [2026-07-20] [verified] Never mock the auth client in integration tests — hides token-refresh bugs. (src/auth/client.ts) (seen: 3, first 2026-06-01)`.
   - The **datestamp** is when the lesson was learned or last confirmed true.
   - The **anchor** is an optional trailing `(path)` pointing at the file or config the lesson is about. Project-general lessons ("always run tests before pushing") don't need one.
+  - The **`(seen: N, first YYYY-MM-DD)`** counter is optional — added once a lesson is re-encountered, tracking corroboration toward the 3-sighting bar; omitted on first sighting.
 - **Provenance tag:** every entry carries exactly one of `[verified]` (corroborated in ~3 independent sessions, or explicitly confirmed by the user — mirrors the 3-sighting rule that promotes `WORKFLOWS.md` candidates), `[observed]` (seen happen, not yet corroborated), `[assumed]` (inferred, never confirmed). neo-shadow assigns the tag at write time — default `[observed]` if unsure; promote to `[verified]` only by rewriting the entry with a fresh date once the corroboration bar is met.
 - Loaded at every session start. A stale lesson that no longer applies wastes context on every session — worse, it can steer the model wrong.
 - **Supersession on write:** when a new lesson covers the same subject or anchor as an existing one, neo-shadow **replaces** the old line (new text, today's date) instead of appending a near-duplicate. Contradictory lessons must not coexist.
@@ -58,7 +59,7 @@ See also: [customization.md](customization.md) for tuning caps and sync behavior
 
 - Bar for entry: will this still matter in a month? One-off picks don't belong here.
 - Loaded on demand via `INDEX.md` pointers, not at session start.
-- Entry format: decision, rationale, alternatives considered and why each lost, `Reverses when:` condition, optional revisit condition.
+- Entry format: decision, rationale, alternatives considered and why each lost, `Reverses when:` condition.
 - **Reverses when:** a required condition that would invalidate the decision — makes it falsifiable instead of just revisitable. `/neo:gc` treats a decision whose reversal condition has come true as stale and flags it.
 
 ### BRIEF.md — pivots only

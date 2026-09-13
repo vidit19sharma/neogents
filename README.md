@@ -107,7 +107,7 @@ The brain lives in `.neo/brain/` inside your project. It loads at session start 
 | File | Content | Cadence |
 |---|---|---|
 | `BRIEF.md` | Scope, goals, constraints | Pivots only |
-| `ACTIVE.md` | Current focus, next steps, open questions | Every save (150-line cap) |
+| `ACTIVE.md` | Current focus, next steps, open questions, open commitments | Every save (150-line cap) |
 | `PROGRESS.md` | Append-only ledger of what shipped | As completed |
 | `DECISIONS.md` | Decision + rationale + alternatives | When made |
 | `LESSONS.md` | Anti-patterns, "never again" rules | When noticed |
@@ -163,7 +163,7 @@ neo/
 │   └── scripts/             # 8 shell scripts
 │       └── format.sh
 ├── templates/
-│   ├── brain/               # 8 brain file templates
+│   ├── brain/               # 9 brain file templates
 │   ├── CLAUDE.md
 │   └── plan.md
 ├── settings.json            # {"agent": "neo"}
