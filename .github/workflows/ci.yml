@@ -399,6 +399,45 @@ jobs:
           echo note >> .neo/brain/ACTIVE.md
           echo '{}' | bash "$g"
 
+      - name: stop-gate.sh sees work inside untracked dirs and odd filenames
+        run: |
+          set -e
+          g="$PWD/hooks/scripts/stop-gate.sh"
+          l="$PWD/hooks/scripts/brain-load.sh"
+          fixture() {
+            tmp=$(mktemp -d)
+            cd "$tmp"
+            git init -q
+            git config user.email ci@neo && git config user.name ci
+            mkdir -p .neo/brain
+            echo focus > .neo/brain/ACTIVE.md
+            echo code > app.py
+            git add -A && git commit -qm init
+          }
+          # git reports an untracked directory as ONE entry; the work is inside it
+          fixture
+          mkdir -p scratch/sub && echo old > scratch/sub/old.txt
+          sleep 1
+          bash "$l" < /dev/null > /dev/null
+          sleep 1
+          echo new > scratch/sub/new.py
+          echo '{}' | bash "$g" && { echo "a new file in a nested untracked dir did not count"; exit 1; } || [ $? -eq 2 ]
+          # editing a file already inside such a directory leaves its mtime alone
+          fixture
+          mkdir -p scratch && echo old > scratch/old.py
+          sleep 1
+          bash "$l" < /dev/null > /dev/null
+          sleep 1
+          echo edit >> scratch/old.py
+          echo '{}' | bash "$g" && { echo "an edit inside an untracked dir did not count"; exit 1; } || [ $? -eq 2 ]
+          # a leading dash is part of the filename, not a find option
+          fixture
+          sleep 1
+          bash "$l" < /dev/null > /dev/null
+          sleep 1
+          echo dash > -x.py
+          echo '{}' | bash "$g" && { echo "a dash-prefixed filename did not count"; exit 1; } || [ $? -eq 2 ]
+
       - name: stop-gate.sh stands down when .neo is gitignored
         run: |
           set -e

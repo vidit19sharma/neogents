@@ -46,7 +46,10 @@ code_touched_this_session() {
     while IFS= read -r -d '' entry; do
       f="${entry:3}"
       [ -e "$f" ] || continue
-      if [ -n "$(find "$f" -prune -newer "$MARKER" 2>/dev/null)" ]; then
+      # An untracked DIRECTORY is reported as one entry, so -prune hid every file
+      # inside it: work added to a directory that predates the session looked like
+      # no work at all. `./` keeps a name like "-x.py" from being read as an option.
+      if [ -n "$(find ./"$f" -newer "$MARKER" 2>/dev/null | head -n 1)" ]; then
         echo 1
         return 0
       fi
