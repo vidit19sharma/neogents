@@ -102,9 +102,45 @@ jobs:
           touch "$tmp/outside/target.md"
           ln -s "$tmp/outside/target.md" "$tmp/.neo/brain/link.md"
           echo "{\"agent_type\":\"neo-shadow\",\"cwd\":\"$tmp\",\"tool_input\":{\"file_path\":\"$tmp/.neo/brain/link.md\"}}" | bash "$jj" && { echo "should have blocked symlinked file"; exit 1; } || [ $? -eq 2 ]
-          # real dirs, honest write inside .neo -> allow
+          # symlink escape through a MISSING intermediate dir -> block (no fail-open)
+          ln -s "$tmp/outside" "$tmp/.neo/brain/evil"
+          echo "{\"agent_type\":\"neo-shadow\",\"cwd\":\"$tmp\",\"tool_input\":{\"file_path\":\"$tmp/.neo/brain/evil/sub/x.md\"}}" | bash "$jj" && { echo "should have blocked escape via missing dir"; exit 1; } || [ $? -eq 2 ]
+          # inside .neo but outside the brain -> block (machine-written state)
+          echo "{\"agent_type\":\"neo-shadow\",\"cwd\":\"$tmp\",\"tool_input\":{\"file_path\":\"$tmp/.neo/CHECKPOINT.md\"}}" | bash "$jj" && { echo "should have blocked a write outside the brain"; exit 1; } || [ $? -eq 2 ]
+          # pretty-printed payload is handled like the compact one
+          printf '{\n  "agent_type": "neo-shadow",\n  "cwd": "%s",\n  "tool_input": {\n    "file_path": "%s"\n  }\n}\n' "$tmp" "$tmp/src/app.ts" | bash "$jj" && { echo "should have blocked pretty-printed payload"; exit 1; } || [ $? -eq 2 ]
+          # real dirs, honest write inside .neo/brain -> allow
           echo "{\"agent_type\":\"neo-shadow\",\"cwd\":\"$tmp\",\"tool_input\":{\"file_path\":\"$tmp/.neo/brain/ACTIVE.md\"}}" | bash "$jj"
+          # ...including when the payload cwd carries a trailing slash
+          echo "{\"agent_type\":\"neo-shadow\",\"cwd\":\"$tmp/\",\"tool_input\":{\"file_path\":\"$tmp/.neo/brain/ACTIVE.md\"}}" | bash "$jj"
+          # ...and pretty-printed
+          printf '{\n  "agent_type": "neo-shadow",\n  "cwd": "%s",\n  "tool_input": {\n    "file_path": "%s"\n  }\n}\n' "$tmp" "$tmp/.neo/brain/ACTIVE.md" | bash "$jj"
           rm -rf "$tmp"
+
+      - name: hooks find the brain from a subdirectory of the repo
+        run: |
+          set -e
+          root="$PWD"
+          tmp=$(mktemp -d)
+          cd "$tmp"
+          git init -q
+          git config user.email ci@neo && git config user.name ci
+          mkdir -p .neo/brain sub/deep
+          echo "the brief" > .neo/brain/BRIEF.md
+          git add -A && git commit -qm init
+          echo code > app.py && git add -A && git commit -qm code
+          echo dirty >> app.py
+          cd "$tmp/sub/deep"
+          bash "$root/hooks/scripts/brain-load.sh" | grep -q "the brief" || { echo "brain-load missed the brain"; exit 1; }
+          echo '{}' | bash "$root/hooks/scripts/stop-gate.sh" && { echo "stop-gate stopped gating"; exit 1; } || [ $? -eq 2 ]
+          echo update >> "$tmp/.neo/brain/BRIEF.md"
+          bash "$root/hooks/scripts/brain-sync.sh"
+          git -C "$tmp" log -1 --pretty=%s | grep -q '^neo: brain sync' || { echo "brain-sync committed nothing"; exit 1; }
+          echo '{"hook_event_name":"PreCompact"}' | bash "$root/hooks/scripts/checkpoint.sh"
+          [ -f "$tmp/.neo/CHECKPOINT.md" ] || { echo "checkpoint wrote nothing at the root"; exit 1; }
+          echo '{"tool_input":{"subagent_type":"trinity"},"tool_response":"ok"}' | bash "$root/hooks/scripts/run-ledger.sh"
+          ls "$tmp"/.neo/runs/*.md >/dev/null || { echo "run-ledger wrote nothing at the root"; exit 1; }
+          [ ! -d "$tmp/sub/deep/.neo" ] || { echo "a hook created .neo in the subdirectory"; exit 1; }
 
       - name: brain-load.sh fences and caps untrusted brain content
         run: |
