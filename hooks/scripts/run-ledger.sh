@@ -17,8 +17,15 @@ command -v jq >/dev/null 2>&1 || exit 0
 INPUT="$(cat 2>/dev/null || true)"
 [ -n "$INPUT" ] || exit 0
 
+# Every field below is model-controlled. A newline in one of them would end the
+# ledger line and let the model write ledger entries of its own choosing, so
+# newlines are flattened before interpolation.
+oneline() { printf '%s' "$1" | tr '\n\r' '  '; }
+
 AGENT="$(printf '%s' "$INPUT" | jq -r '.tool_input.subagent_type // "unknown"' 2>/dev/null || echo "unknown")"
 DESC="$(printf '%s' "$INPUT" | jq -r '.tool_input.description // ""' 2>/dev/null | head -c 120)"
+AGENT="$(oneline "$AGENT")"
+DESC="$(oneline "$DESC")"
 
 # Flatten the response to plain text whatever shape the harness returns.
 RESPONSE="$(printf '%s' "$INPUT" | jq -r '
@@ -37,8 +44,8 @@ mkdir -p .neo/runs 2>/dev/null || exit 0
 LEDGER=".neo/runs/$(date +%Y-%m-%d).md"
 STAMP="$(date '+%H:%M:%S')"
 
-VERDICT="$(printf '%s' "$RESPONSE" | grep -m1 -E '^VERDICT' || true)"
-SUMMARY="$(printf '%s' "$RESPONSE" | grep -m1 '[^[:space:]]' | head -c 200 || true)"
+VERDICT="$(oneline "$(printf '%s' "$RESPONSE" | grep -m1 -E '^VERDICT' || true)")"
+SUMMARY="$(oneline "$(printf '%s' "$RESPONSE" | grep -m1 '[^[:space:]]' | head -c 200 || true)")"
 
 {
   echo ""
