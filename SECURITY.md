@@ -16,6 +16,12 @@ NEO is a Claude Code plugin. It ships lifecycle hooks that execute shell scripts
 
 This is the same trust model as any other Claude Code plugin or hook. You should treat installing this plugin the same way you'd treat running a shell script from a third-party repo: read it first, understand what it does, and only install it if you trust the source.
 
+### Brain file content is untrusted input
+
+`.neo/brain/` travels with the repo, so a cloned or forked project can ship brain files crafted to be malicious — a lesson quoting a prompt-injection payload, a pasted error message carrying hostile instructions, anything that ever passed through the project and made it into a saved entry. `brain-load.sh` cats these files straight into session context at every start.
+
+The load fences the dump with a per-run nonce and labels it explicitly as untrusted project data, not instructions, so brain content can't forge the closing marker and speak as the harness — but the fence limits impersonation, it doesn't make the content trustworthy. Treat `.neo/brain/` the way you'd treat a cloned repo's `CLAUDE.md`: read what it ships before you trust the session that loads it.
+
 ### What the hook scripts deliberately do
 
 - `brain-load.sh` reads files under `.neo/brain/` and prints them to stdout (injected into session context). No writes, no network.
