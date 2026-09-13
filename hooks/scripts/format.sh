@@ -32,8 +32,15 @@ CWD="$(printf '%s' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null)"
 
 case "$FILE" in
   *.js|*.jsx|*.ts|*.tsx|*.mjs|*.cjs|*.json|*.css|*.scss|*.html|*.yaml|*.yml|*.md)
-    # prettier: only the project-local install, and only if the project configures it
-    if [ -x "$CWD/node_modules/.bin/prettier" ]; then
+    # prettier: only the project-local install, and only if the project configures
+    # it. Running node_modules/.bin/prettier on sight executes a work-tree binary
+    # a clone controls, on the first markdown edit, with no opt-in from the user.
+    # Config subset: .prettierrc, .prettierrc.<ext> and prettier.config.<ext>.
+    configured=""
+    for c in "$CWD"/.prettierrc "$CWD"/.prettierrc.* "$CWD"/prettier.config.*; do
+      [ -f "$c" ] && { configured=1; break; }
+    done
+    if [ -n "$configured" ] && [ -x "$CWD/node_modules/.bin/prettier" ]; then
       "$CWD/node_modules/.bin/prettier" --write --ignore-unknown "$FILE" >/dev/null 2>&1
     fi
     ;;

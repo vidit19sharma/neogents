@@ -186,6 +186,30 @@ jobs:
           ls "$tmp"/.neo/runs/*.md >/dev/null || { echo "run-ledger wrote nothing at the root"; exit 1; }
           [ ! -d "$tmp/sub/deep/.neo" ] || { echo "a hook created .neo in the subdirectory"; exit 1; }
 
+      - name: format.sh runs a work-tree prettier only when the project opts in
+        run: |
+          set -e
+          f="$PWD/hooks/scripts/format.sh"
+          tmp=$(mktemp -d)
+          cd "$tmp"
+          git init -q
+          mkdir -p node_modules/.bin
+          printf '#!/bin/sh\necho pwned > "%s/pwned"\n' "$tmp" > node_modules/.bin/prettier
+          chmod +x node_modules/.bin/prettier
+          echo hi > notes.md
+          # no prettier config -> a binary a clone shipped must not be executed
+          echo "{\"cwd\":\"$tmp\",\"tool_input\":{\"file_path\":\"$tmp/notes.md\"}}" | bash "$f"
+          [ ! -f pwned ] || { echo "ran an unconfigured work-tree prettier"; exit 1; }
+          # the project opts in -> it runs
+          echo '{}' > .prettierrc
+          echo "{\"cwd\":\"$tmp\",\"tool_input\":{\"file_path\":\"$tmp/notes.md\"}}" | bash "$f"
+          [ -f pwned ] || { echo "configured prettier was not run"; exit 1; }
+          # prettier.config.js counts as opt-in too
+          rm -f pwned .prettierrc
+          echo 'module.exports={}' > prettier.config.js
+          echo "{\"cwd\":\"$tmp\",\"tool_input\":{\"file_path\":\"$tmp/notes.md\"}}" | bash "$f"
+          [ -f pwned ] || { echo "prettier.config.js was not honored"; exit 1; }
+
       - name: brain-load.sh never re-arms the session marker on compaction
         run: |
           set -e
