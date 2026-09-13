@@ -19,6 +19,10 @@ set -uo pipefail
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || ROOT="${CLAUDE_PROJECT_DIR:-}"
 [ -n "$ROOT" ] && { cd "$ROOT" || exit 0; }
 
+# A clone can ship `.neo` or `.neo/brain` as a symlink pointing anywhere the user
+# can read; scanning through it would report on a file outside the repo.
+if [ -L ".neo" ] || [ -L ".neo/brain" ]; then exit 0; fi
+
 LESSONS=".neo/brain/LESSONS.md"
 MAX_AGE_DAYS="${NEO_GC_MAX_AGE_DAYS:-90}"
 MODE="${1:-full}"

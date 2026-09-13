@@ -8,6 +8,11 @@ set -uo pipefail
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || ROOT="${CLAUDE_PROJECT_DIR:-}"
 [ -n "$ROOT" ] && { cd "$ROOT" || exit 0; }
 
+# A clone can ship `.neo` or `.neo/brain` as a symlink and relocate the whole
+# directory outside the repo. The per-file -L check below cannot see a symlinked
+# PARENT, so it would read the outside target verbatim into the session.
+if [ -L ".neo" ] || [ -L ".neo/brain" ]; then exit 0; fi
+
 BRAIN=".neo/brain"
 
 if [ ! -d "$BRAIN" ]; then

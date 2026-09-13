@@ -9,6 +9,10 @@ set -uo pipefail
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || ROOT="${CLAUDE_PROJECT_DIR:-}"
 [ -n "$ROOT" ] && { cd "$ROOT" || exit 0; }
 
+# A clone can ship `.neo` or `.neo/brain` as a symlink, which would commit
+# whatever the link points at outside the repo as if it were the brain.
+if [ -L ".neo" ] || [ -L ".neo/brain" ]; then exit 0; fi
+
 [ -d ".neo/brain" ] || exit 0
 [ -f ".neo/no-auto-commit" ] && exit 0
 

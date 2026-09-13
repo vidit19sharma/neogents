@@ -11,6 +11,10 @@ set -uo pipefail
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || ROOT="${CLAUDE_PROJECT_DIR:-}"
 [ -n "$ROOT" ] && { cd "$ROOT" || exit 0; }
 
+# A clone can ship `.neo` as a symlink; writing CHECKPOINT.md through it would
+# land the file outside the repo entirely.
+if [ -L ".neo" ] || [ -L ".neo/brain" ]; then exit 0; fi
+
 [ -d ".neo" ] || exit 0
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
 

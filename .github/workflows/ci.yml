@@ -159,6 +159,47 @@ jobs:
           echo plain > .neo/brain/plain.md
           echo "{\"agent_type\":\"neo-shadow\",\"cwd\":\"$tmp\",\"tool_input\":{\"file_path\":\"$tmp/.neo/brain/plain.md\"}}" | bash "$jj" || { echo "plain brain file was blocked"; exit 1; }
 
+      - name: hooks refuse to work through a symlinked .neo or .neo/brain
+        run: |
+          set -e
+          root="$PWD"
+          # a git-shipped `.neo` symlink relocates every read and write outside the repo
+          tmp=$(mktemp -d); out=$(mktemp -d)
+          cd "$tmp"
+          git init -q
+          git config user.email ci@neo && git config user.name ci
+          mkdir -p "$out/brain"
+          echo TOPSECRETKEY > "$out/brain/BRIEF.md"
+          printf -- '- [2030-01-01] outside lesson (nope.ts)\n' > "$out/brain/LESSONS.md"
+          ln -s "$out" .neo
+          echo code > app.py && git add app.py && git commit -qm init
+          bash "$root/hooks/scripts/brain-load.sh" < /dev/null | grep -q TOPSECRETKEY && { echo "brain-load read through a symlinked .neo"; exit 1; } || true
+          [ ! -e "$out/.session" ] || { echo "brain-load armed a marker outside the repo"; exit 1; }
+          echo '{"hook_event_name":"PreCompact"}' | bash "$root/hooks/scripts/checkpoint.sh"
+          [ ! -e "$out/CHECKPOINT.md" ] || { echo "checkpoint wrote outside the repo"; exit 1; }
+          echo '{"tool_input":{"subagent_type":"trinity"},"tool_response":"ok"}' | bash "$root/hooks/scripts/run-ledger.sh"
+          [ ! -e "$out/runs" ] || { echo "run-ledger wrote outside the repo"; exit 1; }
+          bash "$root/hooks/scripts/brain-sync.sh"
+          git log -1 --pretty=%s | grep -q 'brain sync' && { echo "brain-sync committed through a symlinked .neo"; exit 1; } || true
+          bash "$root/hooks/scripts/brain-gc.sh" | grep -q 'outside lesson' && { echo "brain-gc scanned outside the repo"; exit 1; } || true
+
+          # ...and so does a symlinked .neo/brain inside a real .neo
+          tmp=$(mktemp -d); out=$(mktemp -d)
+          cd "$tmp"
+          git init -q
+          git config user.email ci@neo && git config user.name ci
+          mkdir -p .neo
+          echo TOPSECRETKEY > "$out/BRIEF.md"
+          printf -- '- [2030-01-01] outside lesson (nope.ts)\n' > "$out/LESSONS.md"
+          ln -s "$out" .neo/brain
+          bash "$root/hooks/scripts/brain-load.sh" < /dev/null | grep -q TOPSECRETKEY && { echo "brain-load read through a symlinked .neo/brain"; exit 1; } || true
+          [ ! -e .neo/.session ] || { echo "brain-load armed a marker for a symlinked brain"; exit 1; }
+          bash "$root/hooks/scripts/brain-gc.sh" | grep -q 'outside lesson' && { echo "brain-gc scanned a symlinked brain"; exit 1; } || true
+          echo '{"hook_event_name":"PreCompact"}' | bash "$root/hooks/scripts/checkpoint.sh"
+          [ ! -e .neo/CHECKPOINT.md ] || { echo "checkpoint wrote next to a symlinked brain"; exit 1; }
+          echo '{"tool_input":{"subagent_type":"trinity"},"tool_response":"ok"}' | bash "$root/hooks/scripts/run-ledger.sh"
+          [ ! -e .neo/runs ] || { echo "run-ledger wrote next to a symlinked brain"; exit 1; }
+
       - name: hooks find the brain from a subdirectory of the repo
         run: |
           set -e
