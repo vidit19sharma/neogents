@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # NEO plugin — PreToolUse hook (matcher: Edit|Write|NotebookEdit).
 # Path jail for write-restricted agents:
-#   neo-shadow  -> may write only under .neo/
+#   neo-shadow  -> may write only under .neo/brain/ (not .neo/CHECKPOINT.md,
+#                  .neo/plans/, .neo/runs/ or .neo/no-auto-commit — those are
+#                  machine-written or user-owned)
 # All other agents and the main thread pass through untouched.
 #
 # Protocol: exit 0 = allow; exit 2 + stderr = block (stderr is fed back
@@ -32,6 +34,9 @@ FILE=$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // .tool_input.notebo
 [ -z "$FILE" ] && exit 0
 
 CWD=$(printf '%s' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null)
+# A trailing slash would survive the prefix strip below and leave REL absolute,
+# blocking every legitimate write.
+CWD="${CWD%/}"
 
 # Normalize to a path relative to the session cwd.
 REL="$FILE"
@@ -54,27 +59,42 @@ esac
 case "$AGENT" in
   neo-shadow)
     case "$REL" in
-      .neo/*) ;;
-      *) block ".neo/" ;;
+      .neo/brain/*) ;;
+      *) block ".neo/brain/" ;;
     esac
     ;;
 esac
 
 # The string prefix check above can be defeated by a pre-existing symlink
-# inside .neo/ that points outside it. Defense-in-depth: refuse to write
-# through a symlink, and when the paths exist, compare parent directories
-# physically (pwd -P). Fail-open when they don't resolve, e.g. new dirs.
-[ -L "$FILE" ] && block ".neo/ (refusing to write through a symlink)"
+# inside .neo/brain/ that points outside it. Defense-in-depth: refuse to
+# write through a symlink, and compare parent directories physically.
+[ -L "$FILE" ] && block ".neo/brain/ (refusing to write through a symlink)"
 
-if [ -n "$CWD" ]; then
-  PHYS_DIR=$(cd "$(dirname "$FILE")" 2>/dev/null && pwd -P) || PHYS_DIR=""
-  PHYS_JAIL=$(cd "$CWD/.neo" 2>/dev/null && pwd -P) || PHYS_JAIL=""
-  if [ -n "$PHYS_DIR" ] && [ -n "$PHYS_JAIL" ]; then
-    case "${PHYS_DIR}/" in
-      "${PHYS_JAIL}/"*) ;;
-      *) block ".neo/ (path resolves outside the jail)" ;;
+# Physical path of a target whose tail may not exist yet: resolve the nearest
+# existing ancestor with pwd -P, then re-append the missing components. A
+# missing intermediate directory must not skip the check — that would let a
+# symlinked ancestor escape the jail unnoticed.
+phys_path() {
+  local p="$1" rest="" base
+  while [ ! -d "$p" ]; do
+    case "$p" in
+      */?*) rest="${p##*/}${rest:+/$rest}"; p="${p%/*}"; [ -z "$p" ] && p="/" ;;
+      *) return 1 ;;
     esac
-  fi
+  done
+  base=$(cd "$p" 2>/dev/null && pwd -P) || return 1
+  printf '%s' "${base%/}${rest:+/$rest}"
+}
+
+# Fail-closed: resolution here is fully script-controlled, so an unresolvable
+# path is a reason to block, not to wave through.
+if [ -n "$CWD" ]; then
+  PHYS_DIR=$(phys_path "$(dirname "$FILE")") || block ".neo/brain/ (path does not resolve)"
+  PHYS_JAIL=$(phys_path "$CWD/.neo/brain") || block ".neo/brain/ (jail does not resolve)"
+  case "${PHYS_DIR}/" in
+    "${PHYS_JAIL}/"*) ;;
+    *) block ".neo/brain/ (path resolves outside the jail)" ;;
+  esac
 fi
 
 exit 0

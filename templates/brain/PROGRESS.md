@@ -1,8 +1,10 @@
 # Progress
 
-> Append-only ledger. New entries go at the TOP under a dated heading.
+> Append-only ledger. Append new entries at the bottom; the loader reads the last 20 lines.
 > Never edit or delete old entries — this file is the project's memory of what actually happened.
 > Session loads read only the most recent entries; age is harmless.
+
+_No entries yet._
 
 <!-- Entry format:
 
@@ -13,4 +15,3 @@
 
 -->
 
-_No entries yet._
