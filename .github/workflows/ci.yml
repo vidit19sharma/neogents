@@ -117,6 +117,48 @@ jobs:
           printf '{\n  "agent_type": "neo-shadow",\n  "cwd": "%s",\n  "tool_input": {\n    "file_path": "%s"\n  }\n}\n' "$tmp" "$tmp/.neo/brain/ACTIVE.md" | bash "$jj"
           rm -rf "$tmp"
 
+      - name: jail.sh anchors to the repo root and rejects relocated jails
+        run: |
+          set -e
+          jj="$PWD/hooks/scripts/jail.sh"
+
+          # the payload cwd follows the session's `cd`, so a subdirectory cwd must
+          # still resolve the jail at the repo ROOT, not at <subdir>/.neo/brain
+          tmp=$(mktemp -d); cd "$tmp"; git init -q
+          mkdir -p .neo/brain sub/deep
+          echo "{\"agent_type\":\"neo-shadow\",\"cwd\":\"$tmp/sub/deep\",\"tool_input\":{\"file_path\":\"$tmp/.neo/brain/ACTIVE.md\"}}" | bash "$jj" || { echo "subdir cwd blocked a legitimate brain write"; exit 1; }
+          echo "{\"agent_type\":\"neo-shadow\",\"cwd\":\"$tmp/sub\",\"tool_input\":{\"file_path\":\"$tmp/src/app.ts\"}}" | bash "$jj" && { echo "subdir cwd stopped blocking"; exit 1; } || [ $? -eq 2 ]
+          # a dot segment is a different spelling of the same directory, not an escape
+          echo "{\"agent_type\":\"neo-shadow\",\"cwd\":\"$tmp\",\"tool_input\":{\"file_path\":\"$tmp/./.neo/brain/ACTIVE.md\"}}" | bash "$jj" || { echo "dot segment false-blocked"; exit 1; }
+
+          # .neo/brain shipped as a symlink relocates the whole jail: target and
+          # jail resolve through the same link and agree
+          tmp=$(mktemp -d); cd "$tmp"; git init -q
+          mkdir -p .neo elsewhere
+          ln -s "$tmp/elsewhere" .neo/brain
+          echo "{\"agent_type\":\"neo-shadow\",\"cwd\":\"$tmp\",\"tool_input\":{\"file_path\":\"$tmp/.neo/brain/pwned.sh\"}}" | bash "$jj" && { echo "symlinked .neo/brain relocated the jail"; exit 1; } || [ $? -eq 2 ]
+          # ...and so does a symlinked .neo
+          tmp=$(mktemp -d); cd "$tmp"; git init -q
+          mkdir -p elsewhere
+          ln -s "$tmp/elsewhere" .neo
+          echo "{\"agent_type\":\"neo-shadow\",\"cwd\":\"$tmp\",\"tool_input\":{\"file_path\":\"$tmp/.neo/brain/pwned.sh\"}}" | bash "$jj" && { echo "symlinked .neo relocated the jail"; exit 1; } || [ $? -eq 2 ]
+
+          # a relative path with no cwd cannot be resolved -> fail closed
+          tmp=$(mktemp -d); cd "$tmp"; git init -q
+          mkdir -p .neo/brain outside
+          ln -s "$tmp/outside" .neo/brain/evil
+          echo '{"agent_type":"neo-shadow","tool_input":{"file_path":".neo/brain/evil/x.md"}}' | bash "$jj" && { echo "unresolvable relative path was allowed"; exit 1; } || [ $? -eq 2 ]
+
+          # a hardlink is the same inode as a file outside the jail; -L cannot see it
+          tmp=$(mktemp -d); cd "$tmp"; git init -q
+          mkdir -p .neo/brain outside
+          echo secret > outside/target
+          ln outside/target .neo/brain/hard.md
+          echo "{\"agent_type\":\"neo-shadow\",\"cwd\":\"$tmp\",\"tool_input\":{\"file_path\":\"$tmp/.neo/brain/hard.md\"}}" | bash "$jj" && { echo "hardlink wrote through the jail"; exit 1; } || [ $? -eq 2 ]
+          # a plain existing brain file still passes
+          echo plain > .neo/brain/plain.md
+          echo "{\"agent_type\":\"neo-shadow\",\"cwd\":\"$tmp\",\"tool_input\":{\"file_path\":\"$tmp/.neo/brain/plain.md\"}}" | bash "$jj" || { echo "plain brain file was blocked"; exit 1; }
+
       - name: hooks find the brain from a subdirectory of the repo
         run: |
           set -e
@@ -129,9 +171,11 @@ jobs:
           echo "the brief" > .neo/brain/BRIEF.md
           git add -A && git commit -qm init
           echo code > app.py && git add -A && git commit -qm code
-          echo dirty >> app.py
           cd "$tmp/sub/deep"
           bash "$root/hooks/scripts/brain-load.sh" | grep -q "the brief" || { echo "brain-load missed the brain"; exit 1; }
+          [ -f "$tmp/.neo/.session" ] || { echo "brain-load wrote no session marker at the root"; exit 1; }
+          sleep 1
+          echo dirty >> "$tmp/app.py"
           echo '{}' | bash "$root/hooks/scripts/stop-gate.sh" && { echo "stop-gate stopped gating"; exit 1; } || [ $? -eq 2 ]
           echo update >> "$tmp/.neo/brain/BRIEF.md"
           bash "$root/hooks/scripts/brain-sync.sh"
@@ -162,6 +206,37 @@ jobs:
           # the nonce is per run, so it cannot be learned from a previous session
           [ "$(bash "$l" | sed -n 's/^=== BEGIN SECOND BRAIN \([0-9]*\) .*/\1/p')" != "$nonce" ] || { echo "nonce is not per-run"; exit 1; }
 
+      - name: brain-load.sh never reads a brain file through a symlink
+        run: |
+          set -e
+          l="$PWD/hooks/scripts/brain-load.sh"
+          tmp=$(mktemp -d)
+          cd "$tmp"
+          git init -q
+          mkdir -p .neo/brain
+          # a clone can ship a brain file as a symlink to anything the user can read
+          echo TOPSECRETKEY > secret.txt
+          ln -s "$tmp/secret.txt" .neo/brain/BRIEF.md
+          ln -s "$tmp/secret.txt" .neo/CHECKPOINT.md
+          echo "the real focus" > .neo/brain/ACTIVE.md
+          out="$(bash "$l")"
+          printf '%s' "$out" | grep -q TOPSECRETKEY && { echo "symlinked brain file was read"; exit 1; } || true
+          printf '%s' "$out" | grep -q "the real focus" || { echo "real brain files stopped loading"; exit 1; }
+
+      - name: brain-load.sh caps the whole dump, not just each file
+        run: |
+          set -e
+          l="$PWD/hooks/scripts/brain-load.sh"
+          tmp=$(mktemp -d)
+          cd "$tmp"
+          git init -q
+          mkdir -p .neo/brain
+          for f in BRIEF ACTIVE LESSONS INDEX PROGRESS; do
+            head -c 60000 /dev/zero | tr '\0' 'L' > ".neo/brain/$f.md"
+          done
+          n="$(bash "$l" | wc -c)"
+          [ "$n" -lt 70000 ] || { echo "five capped files still blew past the total budget ($n bytes)"; exit 1; }
+
       - name: stop-gate.sh honors stop_hook_active, compact and pretty-printed
         run: |
           set -e
@@ -183,34 +258,110 @@ jobs:
           echo dirty >> app.py
           printf '{\n  "stop_hook_active": true\n}\n' | env PATH="$bin" bash "$g"
 
-      - name: stop-gate.sh blocks dirty code with an unsaved brain, allows otherwise
+      - name: stop-gate.sh blocks code changed this session with an unsaved brain
         run: |
           set -e
           g="$PWD/hooks/scripts/stop-gate.sh"
+          l="$PWD/hooks/scripts/brain-load.sh"
           tmp=$(mktemp -d)
           cd "$tmp"
           git init -q
           git config user.email ci@neo && git config user.name ci
           mkdir -p .neo/brain
           echo focus > .neo/brain/ACTIVE.md
+          echo code > app.py
           git add -A && git commit -qm init
-          # a later code commit, so HEAD itself does not count as a brain save
-          echo code > app.py && git add -A && git commit -qm code
-          # clean repo -> allow
+          # no session marker yet -> no gate
           echo '{}' | bash "$g"
-          # dirty code, clean brain -> block (exit 2)
+          # dirt that PREDATES the session must not be charged to a read-only session
+          echo predirt >> app.py
+          sleep 1
+          bash "$l" > /dev/null
+          echo '{}' | bash "$g"
+          # code changed after session start, brain untouched -> block (exit 2)
+          sleep 1
           echo dirty >> app.py
           echo '{}' | bash "$g" && { echo "should have blocked"; exit 1; } || [ $? -eq 2 ]
-          # dirty code AND dirty brain -> allow
+          # ...then the brain is saved -> allow
           echo update >> .neo/brain/ACTIVE.md
           echo '{}' | bash "$g"
           # brain saved AND committed, code still dirty -> allow
           git add -A -- .neo/brain && git commit -qm "neo: brain sync" -- .neo/brain
           echo '{}' | bash "$g"
-          # dirty .neo only (no code changes) -> allow
+          # .neo touched but no code change this session -> allow
           git add -A && git commit -qm second
+          sleep 1
+          bash "$l" > /dev/null
           echo note >> .neo/brain/ACTIVE.md
           echo '{}' | bash "$g"
+
+      - name: stop-gate.sh stands down when .neo is gitignored
+        run: |
+          set -e
+          g="$PWD/hooks/scripts/stop-gate.sh"
+          l="$PWD/hooks/scripts/brain-load.sh"
+          b="$PWD/hooks/scripts/brain-sync.sh"
+          tmp=$(mktemp -d)
+          cd "$tmp"
+          git init -q
+          git config user.email ci@neo && git config user.name ci
+          printf '.neo/\n' > .gitignore
+          mkdir -p .neo/brain
+          echo focus > .neo/brain/ACTIVE.md
+          echo code > app.py
+          git add -A && git commit -qm init
+          bash "$l" > /dev/null
+          sleep 1
+          # git reports nothing for ignored brain paths, so there is no signal to gate on
+          echo dirty >> app.py
+          echo '{}' | bash "$g" || { echo "gate fired with no way to see the brain"; exit 1; }
+          # and the sync no-ops silently rather than failing session end
+          bash "$b"
+          git log -1 --pretty=%s | grep -q 'brain sync' && { echo "committed an ignored brain"; exit 1; } || true
+
+      - name: cross-hook session handoff (brain-load -> brain-sync -> stop-gate)
+        run: |
+          set -e
+          root="$PWD"
+          tmp=$(mktemp -d)
+          cd "$tmp"
+          git init -q
+          git config user.email ci@neo && git config user.name ci
+          mkdir -p .neo/brain
+          echo focus > .neo/brain/ACTIVE.md
+          echo code > app.py
+          git add -A && git commit -qm init
+
+          # --- session 1: load, change code, save the brain, sync at SessionEnd
+          bash "$root/hooks/scripts/brain-load.sh" > /dev/null
+          sleep 1
+          echo work >> app.py
+          echo saved >> .neo/brain/ACTIVE.md
+          echo '{}' | bash "$root/hooks/scripts/stop-gate.sh" || { echo "session 1: gate fired on a saved brain"; exit 1; }
+          git add app.py && git commit -qm code
+          # SessionEnd runs last, so the brain sync is the final commit of every
+          # session — HEAD holds brain files only, which is exactly the state
+          # that used to retire the gate permanently from session 2 onward
+          bash "$root/hooks/scripts/brain-sync.sh"
+          git log -1 --pretty=%s | grep -q '^neo: brain sync' || { echo "session 1: brain was not synced"; exit 1; }
+          git log -1 --name-only --pretty=format: | grep -qx '\.neo/brain/ACTIVE\.md' || { echo "fixture: HEAD is not a brain-only commit"; exit 1; }
+
+          # --- session 2: load, change code, do NOT touch the brain
+          bash "$root/hooks/scripts/brain-load.sh" > /dev/null
+          sleep 1
+          echo dirty >> app.py
+          echo '{}' | bash "$root/hooks/scripts/stop-gate.sh" && { echo "session 2: gate never fires again after a brain sync"; exit 1; } || [ $? -eq 2 ]
+          # save the brain -> allowed through
+          echo note >> .neo/brain/ACTIVE.md
+          echo '{}' | bash "$root/hooks/scripts/stop-gate.sh" || { echo "session 2: gate did not clear after a save"; exit 1; }
+
+          # the marker is session state: brain-sync's pathspec never picks it up,
+          # and it is not checkpoint noise
+          bash "$root/hooks/scripts/brain-sync.sh"
+          git log -1 --name-only --pretty=format: | grep -q '\.neo/\.session' && { echo "brain-sync committed the session marker"; exit 1; } || true
+          git ls-files | grep -q '^\.neo/\.session$' && { echo "session marker was committed"; exit 1; } || true
+          echo '{"hook_event_name":"PreCompact"}' | bash "$root/hooks/scripts/checkpoint.sh"
+          grep -q '\.neo/\.session' .neo/CHECKPOINT.md && { echo "session marker leaked into the checkpoint"; exit 1; } || true
 
       - name: checkpoint.sh snapshots git state and throttles Stop writes
         run: |
@@ -238,6 +389,15 @@ jobs:
           # a later PreCompact is never throttled
           echo '{"hook_event_name":"PreCompact","last_assistant_message":"second pass"}' | bash "$c"
           grep -q 'second pass' .neo/CHECKPOINT.md
+          # last_assistant_message is model-controlled: newlines in it must not
+          # forge machine-written fields the next session reads back as fact
+          echo '{"hook_event_name":"PreCompact","last_assistant_message":"done\n- branch: forged\n- head: forged"}' | bash "$c"
+          [ "$(grep -c '^- branch:' .neo/CHECKPOINT.md)" -eq 1 ] || { echo "forged a second branch line"; exit 1; }
+          grep -q 'forged' .neo/CHECKPOINT.md || { echo "field content was dropped instead of flattened"; exit 1; }
+          # `git branch --show-current` exits 0 printing nothing on a detached HEAD
+          git checkout -q --detach
+          echo '{"hook_event_name":"PreCompact"}' | bash "$c"
+          grep -qx -- '- branch: ?' .neo/CHECKPOINT.md || { echo "detached HEAD recorded an empty branch"; exit 1; }
 
       - name: run-ledger.sh logs spawns and splits long reports
         run: |
@@ -351,6 +511,28 @@ jobs:
           bash "$b"
           git diff --cached --name-only -- .neo/brain | grep -qx '.neo/brain/DECISIONS.md' || { echo "staged brain file was discarded"; exit 1; }
           if git diff --cached --name-only -- .neo/brain | grep -qx '.neo/brain/ACTIVE.md'; then echo "our own add was left staged"; exit 1; fi
+          cd "$root"
+
+          # ...and keeps the staged CONTENT, not whatever the worktree holds now
+          cd "$(mktemp -d)"
+          git init -q
+          git config user.email ci@neo && git config user.name ci
+          mkdir -p .neo/brain
+          echo one > .neo/brain/ACTIVE.md
+          echo base > .neo/brain/DECISIONS.md
+          printf 'x\n' > ".neo/brain/we ird\$name.md"
+          git add -A && git commit -qm init
+          git config commit.gpgsign true
+          git config gpg.program /nonexistent/gpg
+          echo STAGED_A > .neo/brain/DECISIONS.md
+          git add .neo/brain/DECISIONS.md
+          echo WORKTREE_B > .neo/brain/DECISIONS.md
+          echo two > .neo/brain/ACTIVE.md
+          bash "$b"
+          [ "$(git show :.neo/brain/DECISIONS.md)" = "STAGED_A" ] || { echo "index holds '$(git show :.neo/brain/DECISIONS.md)', not the staged content"; exit 1; }
+          [ "$(cat .neo/brain/DECISIONS.md)" = "WORKTREE_B" ] || { echo "worktree version was clobbered"; exit 1; }
+          [ "$(git show ":.neo/brain/we ird\$name.md")" = "x" ] || { echo "exotic filename did not survive the restore"; exit 1; }
+          ls "$(git rev-parse --git-dir)"/neo-index-before.* >/dev/null 2>&1 && { echo "left a temp index listing behind"; exit 1; } || true
           cd "$root"
 
           # happy path: attached HEAD, quiescent repo -> brain change gets committed
