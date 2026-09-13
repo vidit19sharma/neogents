@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed `spawn-guard.sh` and its PreToolUse matcher; the structural guarantee (leaf agents have no `Agent` tool, enforced by CI) is the control.
 - Python formatters in `format.sh` now require project opt-in config (`ruff.toml`/`.ruff.toml`/`[tool.ruff]`; `[tool.black]`).
 - Rewrote docs (architecture, hooks reference, workflow, customization, portability) for the lean roster.
+- `SECURITY.md` now notes that `.neo/brain/` content is untrusted input: the nonce fence around the session-start dump limits impersonation, not trust — read a cloned repo's brain files the way you'd read its `CLAUDE.md`.
+- Docs drift sweep: finished the `sprint contract` → `contract` rename across `architecture.md` and `workflow.md`, updated the jail's stale `.neo/` scope references to `.neo/brain/`, and synced the `ACTIVE.md` and load-path descriptions across `brain-spec.md` and `README.md`.
 
 ### Added
 

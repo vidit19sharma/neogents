@@ -13,7 +13,7 @@ See also: [customization.md](customization.md) for tuning caps and sync behavior
 | `INDEX.md` | Map of all brain content. `[[wiki-links]]` to every file and section. | When structure changes (new file, section added or moved). |
 | `BRIEF.md` | Scope, goals, constraints, non-goals. The "what and why" of the project. | Pivots only. If you're editing this often, the content belongs in `ACTIVE.md`. |
 | `ARCHITECTURE.md` | System patterns, module relationships, stack, gotchas. | When patterns change. Audit at 500 lines (see below). |
-| `ACTIVE.md` | Current focus, next steps, open questions, session notes. | **Every save.** Full rewrite each time. Hard cap: 150 lines. |
+| `ACTIVE.md` | Current focus, next steps, open questions, open commitments, session notes. | **Every save.** Full rewrite each time. Hard cap: 150 lines. |
 | `PROGRESS.md` | Append-only ledger of what shipped, dated. | As work completes. Never edit old entries. |
 | `DECISIONS.md` | Significant choices with rationale and rejected alternatives. | When a decision is made that will still matter in a month. |
 | `LESSONS.md` | Anti-patterns learned the hard way, datestamped and anchored to evidence. Always loaded; every line pays rent. | When a mistake teaches something reusable. Stale entries collected by `/neo:gc`. |

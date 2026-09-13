@@ -100,7 +100,7 @@ NEO classifies every request before acting. The classification is turn-local.
 2. Recon runs in parallel with the interview.
 3. NEO writes the plan artifact to `.neo/plans/YYYY-MM-DD-<slug>.md` following `templates/plan.md`.
 4. Approval gate: execution does not start before the user approves the plan.
-5. Sprint contract: per task, NEO gives trinity and smith the done-criteria and verify plan; smith objects once with concrete gaps; both agree before execution; the agreed contract is written into the plan artifact.
+5. Contract negotiation: per task, NEO gives trinity and smith the done-criteria and verify plan; smith objects once with concrete gaps; both agree before execution; the agreed contract is written into the plan artifact.
 6. Execute: trinity per task, fresh contexts, parallel waves where the dependency graph allows, tests included.
 7. Review: smith adversarial pass on the full diff, against the recorded contracts.
 8. NEO strips slop from the diff scope and re-runs tests.

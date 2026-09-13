@@ -16,6 +16,6 @@ Scan: !`bash "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/brain-gc.sh" 2>/dev/null || ec
    - **REWRITE** — the kernel is true but details drifted (file moved, command renamed). Update text, anchor, and datestamp. A `DEAD-ANCHOR` often means the file moved — grep for its new location before concluding it's gone.
    - **ARCHIVE** — no longer applies (dependency removed, pattern retired). Move the line to `.neo/brain/archive/LESSONS.md` under a `## YYYY-MM-DD` heading with a one-line reason. Create the archive file if absent.
 
-   EXPECTED OUTCOME: every remaining LESSONS.md entry datestamped and true against the current codebase; archived entries preserved verbatim with reasons. MUST NOT: delete any entry outright (archive instead), touch entries the scan did not flag, touch anything outside `.neo/`. CONTEXT: the full scan report above, plus the current date.
+   EXPECTED OUTCOME: every remaining LESSONS.md entry datestamped and true against the current codebase; archived entries preserved verbatim with reasons. MUST NOT: delete any entry outright (archive instead), touch entries the scan did not flag, touch anything outside `.neo/brain/`. CONTEXT: the full scan report above, plus the current date.
 
 3. **Verify + report**: from the shadow's report, relay one line: "GC done — N kept, N rewritten, N archived." If the shadow was unsure about any entry, it keeps it marked `(unverified)` — surface those to the user for a human call.

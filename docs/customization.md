@@ -58,7 +58,7 @@ Open the relevant script and change it. The scripts are plain bash with no build
 | Script | Hook event | What it does | Safe to edit? |
 |---|---|---|---|
 | `brain-load.sh` | SessionStart | Cats brain files (plus a fresh `CHECKPOINT.md`, if any) into context. | Yes — add files, change order, adjust the graphify detection. |
-| `jail.sh` | PreToolUse (Edit/Write) | Blocks neo-shadow from writing outside `.neo/`. | Carefully — weakening this removes a hard safety guarantee. |
+| `jail.sh` | PreToolUse (Edit/Write) | Blocks neo-shadow from writing outside `.neo/brain/`. | Carefully — weakening this removes a hard safety guarantee. |
 | `format.sh` | PostToolUse (Edit/Write) | Formats the just-edited file with project-local formatters. Fail-open. | Yes — add formatters, adjust file extensions. |
 | `run-ledger.sh` | PostToolUse (Agent/Task) | Appends every subagent spawn (verdict, summary, full report when long) to `.neo/runs/`. | Yes — adjust the entry format or report threshold. |
 | `checkpoint.sh` | PreCompact, Stop | Writes a deterministic snapshot (branch, git status, diff stat, last message) to `.neo/CHECKPOINT.md`. | Yes — adjust the throttle window or snapshot contents. |

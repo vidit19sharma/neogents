@@ -76,7 +76,7 @@ You send a message — NEO classifies intent, routes work
      |
      v
 [PreToolUse / Edit|Write|NotebookEdit] jail.sh fires before every write
-     |  blocks neo-shadow writes outside .neo/
+     |  blocks neo-shadow writes outside .neo/brain/
      |  all other agents and main thread pass through
      |
      v
@@ -190,7 +190,7 @@ NEO edits directly and runs diagnostics. Spawning would cost more than doing. Th
    NEO presents the plan summary: goal, wave schedule, task count, risks
    Execution does not start before user approval
 
-4. Sprint contract
+4. Contract negotiation
    Per task, NEO gives trinity and smith the done-criteria and verify plan
    Smith objects once with concrete gaps; revise until both agree
    Agreed contract is written into the plan artifact — smith reviews against exactly this later
@@ -291,7 +291,7 @@ Each agent's frontmatter lists exactly the tools it may use. Leaf agents (every 
 
 | Hook | What it does | Exit on block |
 |---|---|---|
-| `jail.sh` (PreToolUse / Edit\|Write\|NotebookEdit) | Blocks neo-shadow writing outside `.neo/` | 2 (with corrective feedback to the agent) |
+| `jail.sh` (PreToolUse / Edit\|Write\|NotebookEdit) | Blocks neo-shadow writing outside `.neo/brain/` | 2 (with corrective feedback to the agent) |
 | `stop-gate.sh` (Stop) | Blocks session completion when code changed but brain wasn't updated | 2 (one-shot; lets through on second attempt) |
 | `checkpoint.sh` (Stop, PreCompact) | Snapshots branch, git status, diff stat, last message to `.neo/CHECKPOINT.md` | never blocks |
 | `run-ledger.sh` (PostToolUse / Agent\|Task) | Appends every spawn to `.neo/runs/` | never blocks |
@@ -320,7 +320,7 @@ Here's the full trace through DEEP tier.
 
 **4. Approval gate.** NEO presents the plan summary. You approve.
 
-**5. Sprint contract.** Before Wave 1 starts, NEO gives trinity and smith each task's done-criteria and verify plan — e.g. the middleware task: "returns 429 past the limit, verified by `npm test -- rate-limit`". Smith objects once on a concrete gap (the config-schema task's criteria miss a malformed Redis URL); NEO revises until both agree. The agreed contracts go into the plan artifact.
+**5. Contract negotiation.** Before Wave 1 starts, NEO gives trinity and smith each task's done-criteria and verify plan — e.g. the middleware task: "returns 429 past the limit, verified by `npm test -- rate-limit`". Smith objects once on a concrete gap (the config-schema task's criteria miss a malformed Redis URL); NEO revises until both agree. The agreed contracts go into the plan artifact.
 
 **6. Execute (Wave 1 — parallel).** NEO spawns trinity twice in the same message: instance A implements the rate-limit middleware plus its tests; instance B writes the config schema plus its tests. Each receives the full 6-section delegation contract with exact file paths and verify steps. They know nothing about each other or the broader request. `run-ledger.sh` logs both spawns to `.neo/runs/`. After each file write, `format.sh` runs the project formatter.
 
