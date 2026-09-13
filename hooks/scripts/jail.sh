@@ -16,6 +16,8 @@
 # NOTE: agent_type has no formal stability contract yet (anthropics/
 # claude-code#56168). Fail-open by design: if the field or jq is
 # missing, we allow rather than break every write in the session.
+# Once we know it IS neo-shadow, everything after that is script-controlled
+# and fails CLOSED — an unresolvable path blocks rather than passes.
 
 command -v jq >/dev/null 2>&1 || exit 0
 
@@ -34,41 +36,40 @@ FILE=$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // .tool_input.notebo
 [ -z "$FILE" ] && exit 0
 
 CWD=$(printf '%s' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null)
-# A trailing slash would survive the prefix strip below and leave REL absolute,
-# blocking every legitimate write.
+# A trailing slash would survive the joins below and leave a doubled separator.
 CWD="${CWD%/}"
 
-# Normalize to a path relative to the session cwd.
-REL="$FILE"
-if [ -n "$CWD" ]; then
-  case "$FILE" in
-    "$CWD"/*) REL="${FILE#"$CWD"/}" ;;
-  esac
-fi
-
 block() {
-  echo "[neo jail] $AGENT may only write under $1 (attempted: $FILE). Write your output there, or report back instead of writing elsewhere." >&2
+  echo "[neo jail] $AGENT may only write under .neo/brain/ — $1 (attempted: $FILE). Write your output there, or report back instead of writing elsewhere." >&2
   exit 2
 }
 
-# Reject traversal tricks like .neo/../src/x before the prefix check.
-case "/$REL/" in
-  */../*) block "its jail (no '..' path segments)" ;;
+# The payload cwd follows the session's `cd`, so it is NOT the repo root: a
+# session working in a subdirectory would build the jail at <subdir>/.neo/brain
+# and block every legitimate brain write. Anchor to the work tree root instead.
+ROOT="$(git -C "${CWD:-.}" rev-parse --show-toplevel 2>/dev/null)" || ROOT=""
+[ -z "$ROOT" ] && ROOT="${CLAUDE_PROJECT_DIR:-}"
+[ -z "$ROOT" ] && ROOT="$CWD"
+ROOT="${ROOT%/}"
+[ -z "$ROOT" ] && block "the repo root could not be determined"
+
+# A relative path is only meaningful against a cwd. Without one we cannot
+# resolve it at all, and an unresolved path must never be waved through.
+case "$FILE" in
+  /*) ABS="$FILE" ;;
+  *) [ -n "$CWD" ] || block "a relative path with no session cwd cannot be resolved"; ABS="$CWD/$FILE" ;;
 esac
 
-case "$AGENT" in
-  neo-shadow)
-    case "$REL" in
-      .neo/brain/*) ;;
-      *) block ".neo/brain/" ;;
-    esac
-    ;;
+# Reject traversal tricks like .neo/../src/x before anything else.
+case "/$ABS/" in
+  */../*) block "no '..' path segments" ;;
 esac
 
-# The string prefix check above can be defeated by a pre-existing symlink
-# inside .neo/brain/ that points outside it. Defense-in-depth: refuse to
-# write through a symlink, and compare parent directories physically.
-[ -L "$FILE" ] && block ".neo/brain/ (refusing to write through a symlink)"
+# A repo can ship .neo or .neo/brain as a git-tracked symlink. Both the target
+# and the jail would then resolve through the same link and agree, relocating
+# the entire jail (.neo/brain -> $HOME makes ~/.zshrc writable). Never follow one.
+[ -L "$ROOT/.neo" ] && block "$ROOT/.neo is a symlink"
+[ -L "$ROOT/.neo/brain" ] && block "$ROOT/.neo/brain is a symlink"
 
 # Physical path of a target whose tail may not exist yet: resolve the nearest
 # existing ancestor with pwd -P, then re-append the missing components. A
@@ -86,14 +87,33 @@ phys_path() {
   printf '%s' "${base%/}${rest:+/$rest}"
 }
 
-# Fail-closed: resolution here is fully script-controlled, so an unresolvable
-# path is a reason to block, not to wave through.
-if [ -n "$CWD" ]; then
-  PHYS_DIR=$(phys_path "$(dirname "$FILE")") || block ".neo/brain/ (path does not resolve)"
-  PHYS_JAIL=$(phys_path "$CWD/.neo/brain") || block ".neo/brain/ (jail does not resolve)"
-  case "${PHYS_DIR}/" in
-    "${PHYS_JAIL}/"*) ;;
-    *) block ".neo/brain/ (path resolves outside the jail)" ;;
+# The ALLOW decision is physical, not lexical. A string prefix match compares
+# two spellings of a path, and on macOS the payload cwd may say /tmp while the
+# resolved file says /private/tmp — identical directories, mismatched strings,
+# every write locked out. Resolve both sides and compare those.
+PHYS_DIR=$(phys_path "$(dirname "$ABS")") || block "the path does not resolve"
+PHYS_JAIL=$(phys_path "$ROOT/.neo/brain") || block "the jail does not resolve"
+case "${PHYS_DIR}/" in
+  "${PHYS_JAIL}/"*) ;;
+  *) block "it resolves outside the jail" ;;
+esac
+
+# Defense-in-depth on the leaf itself: a pre-existing symlink inside
+# .neo/brain/ points outside it and writes straight through.
+[ -L "$ABS" ] && block "refusing to write through a symlink"
+
+# ...and so does a hardlink, which -L cannot see: the same inode is reachable
+# from outside the jail, so writing "inside" edits the outside file.
+link_count() {
+  # GNU first (BSD stat rejects -c); BSD second; ls as the portable last resort.
+  stat -c %h "$1" 2>/dev/null || stat -f %l "$1" 2>/dev/null ||
+    ls -ldn "$1" 2>/dev/null | awk '{print $2}'
+}
+if [ -e "$ABS" ] && [ ! -d "$ABS" ]; then
+  LINKS="$(link_count "$ABS" 2>/dev/null | head -n 1)"
+  case "$LINKS" in
+    ''|*[!0-9]*) ;;
+    *) [ "$LINKS" -gt 1 ] && block "the target is a hardlink to a file outside the jail" ;;
   esac
 fi
 
