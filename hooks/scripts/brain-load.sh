@@ -16,10 +16,25 @@ if [ ! -d "$BRAIN" ]; then
   exit 0
 fi
 
+# SessionStart carries a source: startup|resume|clear|compact. Only read it when
+# stdin is a real payload — a TTY would block forever waiting for one.
+SOURCE=""
+if [ ! -t 0 ]; then
+  INPUT="$(cat 2>/dev/null || true)"
+  if command -v jq >/dev/null 2>&1; then
+    SOURCE="$(printf '%s' "$INPUT" | jq -r '.source // empty' 2>/dev/null || true)"
+  else
+    # Payloads arrive pretty-printed, so a fixed-spacing glob never matches.
+    SOURCE="$(printf '%s' "$INPUT" | grep -oE '"source"[[:space:]]*:[[:space:]]*"[^"]*"' | head -n 1 | sed 's/.*"\([^"]*\)"$/\1/')"
+  fi
+fi
+
 # Session start timestamp for stop-gate.sh: "newer than this" is the only
 # reliable way to tell work done in THIS session from pre-existing repo state.
 # Never committed (brain-sync's pathspec is .neo/brain only).
-touch ".neo/.session" 2>/dev/null || true
+# A compact source fires MID-session: re-arming the marker there would date the
+# session forward past every edit already made and retire the gate until exit.
+[ "$SOURCE" = "compact" ] || touch ".neo/.session" 2>/dev/null || true
 
 # Brain files are project data, not instructions, and anything that ever passed
 # through the project can end up in them. Fence the dump with a per-run nonce so

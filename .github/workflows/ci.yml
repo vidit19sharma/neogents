@@ -186,6 +186,45 @@ jobs:
           ls "$tmp"/.neo/runs/*.md >/dev/null || { echo "run-ledger wrote nothing at the root"; exit 1; }
           [ ! -d "$tmp/sub/deep/.neo" ] || { echo "a hook created .neo in the subdirectory"; exit 1; }
 
+      - name: brain-load.sh never re-arms the session marker on compaction
+        run: |
+          set -e
+          l="$PWD/hooks/scripts/brain-load.sh"
+          g="$PWD/hooks/scripts/stop-gate.sh"
+          tmp=$(mktemp -d)
+          cd "$tmp"
+          git init -q
+          git config user.email ci@neo && git config user.name ci
+          mkdir -p .neo/brain
+          echo focus > .neo/brain/ACTIVE.md
+          echo code > app.py
+          git add -A && git commit -qm init
+          echo '{"hook_event_name":"SessionStart","source":"startup"}' | bash "$l" > /dev/null
+          [ -f .neo/.session ] || { echo "startup did not arm the marker"; exit 1; }
+          sleep 1
+          echo work >> app.py
+          # compaction fires mid-session: re-arming here would date the session
+          # past the edit above and retire the gate for the rest of the session
+          echo '{"hook_event_name":"SessionStart","source":"compact"}' | bash "$l" > /dev/null
+          echo '{}' | bash "$g" && { echo "compaction disarmed the stop-gate"; exit 1; } || [ $? -eq 2 ]
+          # every other source is a genuine session start and re-arms
+          sleep 1
+          echo '{"hook_event_name":"SessionStart","source":"resume"}' | bash "$l" > /dev/null
+          echo '{}' | bash "$g" || { echo "resume did not re-arm the marker"; exit 1; }
+          # no payload at all must still arm, and must not hang waiting for one
+          rm -f .neo/.session
+          bash "$l" < /dev/null > /dev/null
+          [ -f .neo/.session ] || { echo "payload-less start did not arm the marker"; exit 1; }
+          # ...and the same on the jq-less fallback path
+          bin=$(mktemp -d)
+          for t in bash git grep cut cat sed head find date tr wc touch; do ln -s "$(command -v $t)" "$bin/$t"; done
+          pivot=$(mktemp)
+          sleep 1
+          printf '{\n  "source": "compact"\n}\n' | env PATH="$bin" bash "$l" > /dev/null
+          [ -z "$(find .neo/.session -newer "$pivot" 2>/dev/null)" ] || { echo "jq-less path re-armed on compaction"; exit 1; }
+          printf '{\n  "source": "resume"\n}\n' | env PATH="$bin" bash "$l" > /dev/null
+          [ -n "$(find .neo/.session -newer "$pivot" 2>/dev/null)" ] || { echo "jq-less path did not re-arm on resume"; exit 1; }
+
       - name: brain-load.sh fences and caps untrusted brain content
         run: |
           set -e
