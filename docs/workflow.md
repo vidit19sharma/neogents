@@ -64,8 +64,10 @@ Session opens
      |
      v
 [SessionStart] brain-load.sh fires
+     |  touches .neo/.session (session marker stop-gate.sh compares mtimes against)
      |  cats BRIEF + ACTIVE + LESSONS + INDEX + PROGRESS tail-20 into context
      |  cats CHECKPOINT.md too, if less than an hour old
+     |  skips symlinked files; caps each at 16K, the whole dump at 64K
      |  (zero LLM cost — pure shell cat)
      |
      v
@@ -103,9 +105,11 @@ Context approaches compaction limit
 NEO finishes responding
      |
 [Stop] checkpoint.sh fires (throttled to once per 10 minutes), then stop-gate.sh
-     |  stop-gate checks: code dirty outside .neo/ AND brain clean inside .neo/brain/
+     |  stop-gate checks: a dirty file outside .neo/ newer than the .neo/.session marker,
+     |  and no .neo/brain/ file newer than it
      |  if both true: blocks once with instructions to save
      |  if stop_hook_active=true in payload: lets through (one-shot, no loops)
+     |  stands down entirely when .neo/ is gitignored (no honest signal either way)
      |
      v
 Session ends
@@ -230,7 +234,7 @@ The brain lives in `.neo/brain/` as plain markdown files. It's yours. Nothing is
 | `INDEX.md` | Map of all brain content with `[[wiki-links]]` | When structure changes |
 | `WORKFLOWS.md` | Recurring multi-step workflows; `candidate` → `proposed` → `skilled` | When a sequence recurs (3-sighting threshold); promoted via `/neo:train` |
 
-Plans live separately in `.neo/plans/YYYY-MM-DD-<slug>.md`. Every subagent spawn is auto-logged to `.neo/runs/YYYY-MM-DD.md` by a hook — agent, task, verdict, summary. `.neo/CHECKPOINT.md` is a machine-written crash snapshot; it's disposable and never curated.
+Plans live separately in `.neo/plans/YYYY-MM-DD-<slug>.md`. Every subagent spawn is auto-logged to `.neo/runs/YYYY-MM-DD.md` by a hook — agent, task, verdict, summary. `.neo/CHECKPOINT.md` is a machine-written crash snapshot; it's disposable and never curated. `.neo/.session` is the session-start marker `stop-gate.sh` compares mtimes against — also disposable, never committed.
 
 ### When saves happen
 
@@ -292,7 +296,7 @@ Each agent's frontmatter lists exactly the tools it may use. Leaf agents (every 
 | Hook | What it does | Exit on block |
 |---|---|---|
 | `jail.sh` (PreToolUse / Edit\|Write\|NotebookEdit) | Blocks neo-shadow writing outside `.neo/brain/` | 2 (with corrective feedback to the agent) |
-| `stop-gate.sh` (Stop) | Blocks session completion when code changed but brain wasn't updated | 2 (one-shot; lets through on second attempt) |
+| `stop-gate.sh` (Stop) | Blocks session completion when a dirty file is newer than the `.neo/.session` session marker and no brain file is; stands down when `.neo/` is gitignored | 2 (one-shot; lets through on second attempt) |
 | `checkpoint.sh` (Stop, PreCompact) | Snapshots branch, git status, diff stat, last message to `.neo/CHECKPOINT.md` | never blocks |
 | `run-ledger.sh` (PostToolUse / Agent\|Task) | Appends every spawn to `.neo/runs/` | never blocks |
 
@@ -332,7 +336,7 @@ Here's the full trace through DEEP tier.
 
 **10. Brain save.** NEO assembles the session delta: what was built, which files changed, the Redis decision and why, where to pick up next. Spawns neo-shadow, which rewrites `ACTIVE.md`, appends to `PROGRESS.md`, and records the Redis decision in `DECISIONS.md`. `jail.sh` fires on every neo-shadow write; all paths are under `.neo/`, so it exits 0.
 
-**11. Stop gate.** NEO finishes responding. Code is dirty (new middleware files), brain is also dirty (neo-shadow just updated it). Gate condition — code dirty AND brain clean — doesn't hold, so the session completes.
+**11. Stop gate.** NEO finishes responding. New middleware files are newer than the session's `.neo/.session` marker, but so is the brain (neo-shadow just updated it). The gate's block condition — dirty file newer than the marker AND no brain file newer — doesn't hold, so the session completes.
 
 **12. Session end.** `brain-sync.sh` commits `.neo/brain/` with `neo: brain sync 2026-07-13`. Next session opens with the updated brain already in context.
 

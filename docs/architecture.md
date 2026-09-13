@@ -135,13 +135,13 @@ Constraints are enforced structurally, not just through prompts.
 
 **Structural tool allowlists.** Each agent's frontmatter lists exactly the tools it may use. Leaf agents have no `Agent` tool, so they structurally cannot spawn.
 
-Hook processes inherit Claude's current working directory, which follows a mid-session `cd`. Every script except `jail.sh` (which takes its root from the payload's `cwd`) anchors to the git work tree root (`git rev-parse --show-toplevel`, falling back to `CLAUDE_PROJECT_DIR`) before touching `.neo/`, so a stray `cd` can't silently disable the brain.
+Hook processes inherit Claude's current working directory, which follows a mid-session `cd`. Every script anchors to the repo root before touching `.neo/`: most resolve it directly via `git rev-parse --show-toplevel` (falling back to `CLAUDE_PROJECT_DIR`); `jail.sh` resolves it from the payload's `cwd` (`git -C "$cwd" rev-parse --show-toplevel`, then `CLAUDE_PROJECT_DIR`, then the raw `cwd`), since it runs from that cwd rather than a hook-local shell. Either way, a stray `cd` can't silently disable the brain.
 
 **Hooks** (see [hooks-reference.md](hooks-reference.md)):
-- `jail.sh` (PreToolUse) — neo-shadow may only write under `.neo/brain/`; fails closed on unresolvable paths; exit 2 blocks and feeds corrective stderr back to the agent
+- `jail.sh` (PreToolUse) — neo-shadow may only write under `.neo/brain/`; the allow decision is physical-path based (resolves symlinks before comparing), and it rejects a symlinked `.neo` or `.neo/brain`, a `..` path segment, a hardlinked write target, and a relative path with no payload `cwd`; fails closed on unresolvable paths; exit 2 blocks and feeds corrective stderr back to the agent
 - `checkpoint.sh` (Stop + PreCompact) — deterministic snapshot of branch, uncommitted files, diff stat, and the last assistant message to `.neo/CHECKPOINT.md`; reloaded at session start while fresh
 - `run-ledger.sh` (PostToolUse on Agent|Task) — appends every spawn to `.neo/runs/`
-- `stop-gate.sh` (Stop) — one-shot block when code changed but the brain was not updated
+- `stop-gate.sh` (Stop) — one-shot block when a dirty file outside `.neo/` is newer than the `.neo/.session` session marker and no `.neo/brain/` file is newer; stands down when `.neo/` is gitignored
 - `brain-sync.sh` (SessionEnd) — auto-commits `.neo/brain/`
 
 **Fail-open rationale.** `agent_type` in hook payloads has no formal stability contract in Claude Code (anthropics/claude-code#56168). Every hook exits 0 when it cannot determine what it needs (missing `jq`, unrecognized payload). A hook that breaks every write in a session is worse than one that occasionally misses a violation. Tool allowlists and the stop-gate audit provide defense-in-depth.
@@ -158,7 +158,7 @@ The skills stay inline. Revisit if the `agent` field's handling of plugin subage
 
 ## Second Brain
 
-**Load path (zero LLM cost).** `brain-load.sh` runs at `SessionStart` and cats: `BRIEF.md`, `ACTIVE.md`, `LESSONS.md`, `INDEX.md` (full), `PROGRESS.md` (last 20 lines), and `.neo/CHECKPOINT.md` when written within the last hour. `ARCHITECTURE.md`, `DECISIONS.md`, and `WORKFLOWS.md` load on demand via INDEX pointers.
+**Load path (zero LLM cost).** `brain-load.sh` runs at `SessionStart`, touches `.neo/.session` as the session marker `stop-gate.sh` compares against, then cats: `BRIEF.md`, `ACTIVE.md`, `LESSONS.md`, `INDEX.md` (full), `PROGRESS.md` (last 20 lines), and `.neo/CHECKPOINT.md` when written within the last hour — skipping any file that's a symlink, each capped at 16K and the whole dump at 64K. `ARCHITECTURE.md`, `DECISIONS.md`, and `WORKFLOWS.md` load on demand via INDEX pointers.
 
 **Write path.** NEO assembles a session delta and spawns neo-shadow. One source of truth: pointers, never copies between files.
 

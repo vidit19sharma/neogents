@@ -116,9 +116,9 @@ The brain lives in `.neo/brain/` inside your project. It loads at session start 
 | `WORKFLOWS.md` | Recurring multi-step workflows; written by neo-shadow at save time, promoted to project skills via `/neo:train` | When a sequence recurs (3-sighting threshold) |
 | `FRICTION.md` | Append-only ledger of user corrections, smith BLOCKs, and escalations — evidence for improving NEO itself | When friction occurs |
 
-Plans live in `.neo/plans/YYYY-MM-DD-<slug>.md`. Every subagent spawn is auto-logged to `.neo/runs/` by a hook (verdict + summary, full report when long). A deterministic checkpoint (`.neo/CHECKPOINT.md` — branch, uncommitted files, diff stat, last assistant message) is written on every stop and before compaction, and reloads automatically while fresh.
+Plans live in `.neo/plans/YYYY-MM-DD-<slug>.md`. Every subagent spawn is auto-logged to `.neo/runs/` by a hook (verdict + summary, full report when long). A deterministic checkpoint (`.neo/CHECKPOINT.md` — branch, uncommitted files, diff stat, last assistant message) is written on every stop and before compaction, and reloads automatically while fresh. `.neo/.session` is a session-start marker (never committed) that the stop-gate compares mtimes against.
 
-**Load path:** `SessionStart` hook cats `BRIEF + ACTIVE + LESSONS + INDEX` into context, plus the last 20 lines of `PROGRESS`, plus `CHECKPOINT.md` when it's less than an hour old. `ARCHITECTURE` and `DECISIONS` load on demand via INDEX pointers.
+**Load path:** `SessionStart` hook touches `.neo/.session`, then cats `BRIEF + ACTIVE + LESSONS + INDEX` into context, plus the last 20 lines of `PROGRESS`, plus `CHECKPOINT.md` when it's less than an hour old — skipping symlinks, capped at 16K per file and 64K total. `ARCHITECTURE` and `DECISIONS` load on demand via INDEX pointers.
 
 **Write path:** NEO hands neo-shadow a session delta (what happened, git diff summary, decisions, lessons, where work stopped). Shadow rewrites `ACTIVE`, appends `PROGRESS`, extracts `DECISIONS`/`LESSONS` with judgment, touches `ARCHITECTURE` only on pattern changes.
 

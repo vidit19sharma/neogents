@@ -57,12 +57,12 @@ Open the relevant script and change it. The scripts are plain bash with no build
 
 | Script | Hook event | What it does | Safe to edit? |
 |---|---|---|---|
-| `brain-load.sh` | SessionStart | Cats brain files (plus a fresh `CHECKPOINT.md`, if any) into context. | Yes — add files, change order, adjust the graphify detection. |
+| `brain-load.sh` | SessionStart | Touches the `.neo/.session` marker, then cats brain files (plus a fresh `CHECKPOINT.md`, if any) into context — skipping symlinks, capped at 16K per file and 64K total. | Yes — add files, change order, adjust the graphify detection. |
 | `jail.sh` | PreToolUse (Edit/Write) | Blocks neo-shadow from writing outside `.neo/brain/`. | Carefully — weakening this removes a hard safety guarantee. |
 | `format.sh` | PostToolUse (Edit/Write) | Formats the just-edited file with project-local formatters. Fail-open. | Yes — add formatters, adjust file extensions. |
 | `run-ledger.sh` | PostToolUse (Agent/Task) | Appends every subagent spawn (verdict, summary, full report when long) to `.neo/runs/`. | Yes — adjust the entry format or report threshold. |
 | `checkpoint.sh` | PreCompact, Stop | Writes a deterministic snapshot (branch, git status, diff stat, last message) to `.neo/CHECKPOINT.md`. | Yes — adjust the throttle window or snapshot contents. |
-| `stop-gate.sh` | Stop | Blocks session end when code changed but brain wasn't saved. | Yes — adjust the staleness logic. |
+| `stop-gate.sh` | Stop | Blocks session end when a file changed after the `.neo/.session` marker but no brain file did; stands down when `.neo/` is gitignored. | Yes — adjust the staleness logic. |
 | `brain-sync.sh` | SessionEnd | Commits `.neo/brain/` to git. | Yes — adjust commit message, add push, etc. |
 | `brain-gc.sh` | (none — helper) | Deterministic staleness scan of `LESSONS.md`; invoked by `/neo:gc` and `/neo:status`, not by hooks.json. | Yes — adjust flag rules, age threshold. |
 

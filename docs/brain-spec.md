@@ -94,7 +94,7 @@ See also: [customization.md](customization.md) for tuning caps and sync behavior
 
 ## Load Path (Zero LLM Cost)
 
-`brain-load.sh` runs at `SessionStart`. It `cat`s files directly into context — no LLM call, no summarization, no cost.
+`brain-load.sh` runs at `SessionStart`. It first touches `.neo/.session` — the session-start marker `stop-gate.sh` compares mtimes against (see below) — then `cat`s files directly into context — no LLM call, no summarization, no cost. Symlinked brain files and a symlinked `CHECKPOINT.md` are skipped, never followed; each file is capped at 16K and the whole dump at 64K.
 
 **What loads automatically:**
 
@@ -182,13 +182,16 @@ Commit message format: `neo: brain sync YYYY-MM-DD`.
 
 ## Stop-Gate: Stale Brain Detection
 
-`stop-gate.sh` runs at `Stop` (when NEO is about to finish responding). It blocks **once** when code changed this session but the brain was not updated.
+`stop-gate.sh` runs at `Stop` (when NEO is about to finish responding). It blocks **once** when a file changed during this session but the brain was not updated to match.
 
 **Logic:**
-- Dirty files outside `.neo/` + clean `.neo/brain/` = stale memory = block with a message naming what to do.
 - `stop_hook_active: true` in the payload = already blocked once this cycle = allow through. No infinite loops, no hard walls.
-- No `.neo/brain/` directory = no gate (project hasn't opted in).
-- Not a git repo = no gate.
+- No `.neo/brain/` directory, or not a git repo = no gate (project hasn't opted in).
+- `.neo/` gitignored = no gate — git reports nothing for brain paths, so there's no honest way to tell a saved brain from an unsaved one.
+- No `.neo/.session` marker (written by `brain-load.sh` at `SessionStart`) = no gate — nothing to measure "this session" against.
+- Otherwise, blocks only when **both** hold: some dirty file outside `.neo/` has an mtime newer than the marker, and no file under `.neo/brain/` is newer than the marker.
+
+Mtimes, not git state, answer "did *this* session save?" — git can't: dirty files may predate the session, and `brain-sync.sh` commits the brain at every `SessionEnd`, so "the brain is in HEAD" is permanently true from session 2 onward and would silently retire the gate forever.
 
 The block message tells NEO exactly what to do: "spawn neo-shadow with the session delta or run `/neo:save`." If there's genuinely nothing worth saving, finishing again lets it through.
 
