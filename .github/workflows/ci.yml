@@ -184,3 +184,72 @@ jobs:
           echo "{\"tool_input\":{\"subagent_type\":\"smith\"},\"tool_response\":\"${long}\"}" | bash "$r"
           grep -q 'full report:' "$ledger"
           ls .neo/runs/*-smith-*.md >/dev/null
+
+      - name: brain-sync.sh skips unsafe git states and recovers from failed commits
+        run: |
+          set -e
+          root="$PWD"
+          b="$root/hooks/scripts/brain-sync.sh"
+
+          # detached HEAD -> no commit, brain change stays in the worktree, index clean
+          cd "$(mktemp -d)"
+          git init -q
+          git config user.email ci@neo && git config user.name ci
+          mkdir -p .neo/brain
+          echo one > .neo/brain/ACTIVE.md
+          git add -A && git commit -qm init
+          echo two > .neo/brain/ACTIVE.md
+          git add -A && git commit -qm second
+          before=$(git rev-parse HEAD~1)
+          git checkout -q HEAD~1
+          echo three > .neo/brain/ACTIVE.md
+          bash "$b"
+          [ "$(git rev-parse HEAD)" = "$before" ] || { echo "detached HEAD: a commit landed"; exit 1; }
+          git diff --cached --quiet -- .neo/brain || { echo "detached HEAD: left something staged"; exit 1; }
+          grep -q three .neo/brain/ACTIVE.md
+          cd "$root"
+
+          # mid-revert (REVERT_HEAD present) -> no commit, revert state left untouched
+          cd "$(mktemp -d)"
+          git init -q
+          git config user.email ci@neo && git config user.name ci
+          mkdir -p .neo/brain
+          echo one > .neo/brain/ACTIVE.md
+          git add -A && git commit -qm init
+          before=$(git rev-parse HEAD)
+          echo dead > "$(git rev-parse --git-dir)/REVERT_HEAD"
+          echo two > .neo/brain/ACTIVE.md
+          bash "$b"
+          [ "$(git rev-parse HEAD)" = "$before" ] || { echo "mid-revert: a commit landed"; exit 1; }
+          [ -e "$(git rev-parse --git-dir)/REVERT_HEAD" ] || { echo "mid-revert: REVERT_HEAD was removed"; exit 1; }
+          cd "$root"
+
+          # broken gpg signing -> commit fails, but the index is cleaned up and the change survives
+          cd "$(mktemp -d)"
+          git init -q
+          git config user.email ci@neo && git config user.name ci
+          mkdir -p .neo/brain
+          echo one > .neo/brain/ACTIVE.md
+          git add -A && git commit -qm init
+          git config commit.gpgsign true
+          git config gpg.program /nonexistent/gpg
+          before=$(git rev-parse HEAD)
+          echo two > .neo/brain/ACTIVE.md
+          bash "$b"
+          [ "$(git rev-parse HEAD)" = "$before" ] || { echo "broken gpg: a commit landed"; exit 1; }
+          git diff --cached --quiet -- .neo/brain || { echo "broken gpg: left something staged"; exit 1; }
+          grep -q two .neo/brain/ACTIVE.md
+          cd "$root"
+
+          # happy path: attached HEAD, quiescent repo -> brain change gets committed
+          cd "$(mktemp -d)"
+          git init -q
+          git config user.email ci@neo && git config user.name ci
+          mkdir -p .neo/brain
+          echo one > .neo/brain/ACTIVE.md
+          git add -A && git commit -qm init
+          echo two > .neo/brain/ACTIVE.md
+          bash "$b"
+          git log -1 --pretty=%s | grep -qE '^neo: brain sync [0-9]{4}-[0-9]{2}-[0-9]{2}$'
+          if git status --porcelain | grep -q .; then echo "happy path: working tree not clean"; exit 1; fi
+          cd "$root"
