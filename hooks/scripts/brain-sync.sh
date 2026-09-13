@@ -27,8 +27,19 @@ done
 
 # Anything to commit under .neo/brain (tracked changes or untracked files)?
 if git status --porcelain -- .neo/brain 2>/dev/null | grep -q .; then
+  # What the user had staged before we touched the index, so a failed commit
+  # restores their staging instead of discarding it.
+  STAGED_BEFORE="$(git diff --cached --name-only -- .neo/brain 2>/dev/null)"
   git add -- .neo/brain >/dev/null 2>&1 || exit 0
-  git commit --no-verify --quiet -m "neo: brain sync $(date +%Y-%m-%d)" -- .neo/brain >/dev/null 2>&1 || git reset -q -- .neo/brain
+  # --no-verify is deliberate: hooks (including secret scanners and any hook
+  # that can fail) must not break session end. The brain is markdown the user
+  # can inspect and amend.
+  if ! git commit --no-verify --quiet -m "neo: brain sync $(date +%Y-%m-%d)" -- .neo/brain >/dev/null 2>&1; then
+    git reset -q -- .neo/brain >/dev/null 2>&1
+    if [ -n "$STAGED_BEFORE" ]; then
+      printf '%s\n' "$STAGED_BEFORE" | tr '\n' '\0' | xargs -0 git add -- >/dev/null 2>&1
+    fi
+  fi
 fi
 
 exit 0

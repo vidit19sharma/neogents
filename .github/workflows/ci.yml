@@ -263,6 +263,24 @@ jobs:
           grep -q two .neo/brain/ACTIVE.md
           cd "$root"
 
+          # failed commit keeps the user's deliberately staged brain file staged
+          cd "$(mktemp -d)"
+          git init -q
+          git config user.email ci@neo && git config user.name ci
+          mkdir -p .neo/brain
+          echo one > .neo/brain/ACTIVE.md
+          echo keep > .neo/brain/DECISIONS.md
+          git add -A && git commit -qm init
+          git config commit.gpgsign true
+          git config gpg.program /nonexistent/gpg
+          echo edited > .neo/brain/DECISIONS.md
+          git add .neo/brain/DECISIONS.md
+          echo two > .neo/brain/ACTIVE.md
+          bash "$b"
+          git diff --cached --name-only -- .neo/brain | grep -qx '.neo/brain/DECISIONS.md' || { echo "staged brain file was discarded"; exit 1; }
+          if git diff --cached --name-only -- .neo/brain | grep -qx '.neo/brain/ACTIVE.md'; then echo "our own add was left staged"; exit 1; fi
+          cd "$root"
+
           # happy path: attached HEAD, quiescent repo -> brain change gets committed
           cd "$(mktemp -d)"
           git init -q
