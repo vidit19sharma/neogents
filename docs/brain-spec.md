@@ -49,6 +49,7 @@ See also: [customization.md](customization.md) for tuning caps and sync behavior
 - Entry format: `- [YYYY-MM-DD] imperative + reason. (anchor)` — e.g. `- [2026-07-20] Never mock the auth client in integration tests — hides token-refresh bugs. (src/auth/client.ts)`.
   - The **datestamp** is when the lesson was learned or last confirmed true.
   - The **anchor** is an optional trailing `(path)` pointing at the file or config the lesson is about. Project-general lessons ("always run tests before pushing") don't need one.
+- **Provenance tag:** every entry carries exactly one of `[verified]` (proven by test/command output), `[observed]` (seen once, not re-confirmed), `[assumed]` (inferred, never confirmed). neo-shadow assigns the tag at write time — default `[observed]` if unsure, upgrade to `[verified]` only with evidence, `[assumed]` for inferences.
 - Loaded at every session start. A stale lesson that no longer applies wastes context on every session — worse, it can steer the model wrong.
 - **Supersession on write:** when a new lesson covers the same subject or anchor as an existing one, neo-shadow **replaces** the old line (new text, today's date) instead of appending a near-duplicate. Contradictory lessons must not coexist.
 - **Staleness is detected, not guessed:** `brain-gc.sh` deterministically flags dead anchors, entries older than the age threshold (default 90 days), and undated entries. `/neo:gc` then has neo-shadow review only the flagged entries against the current codebase. Retired lessons move to `.neo/brain/archive/LESSONS.md` — never silently deleted.
@@ -57,7 +58,8 @@ See also: [customization.md](customization.md) for tuning caps and sync behavior
 
 - Bar for entry: will this still matter in a month? One-off picks don't belong here.
 - Loaded on demand via `INDEX.md` pointers, not at session start.
-- Entry format: decision, rationale, alternatives considered and why each lost, optional revisit condition.
+- Entry format: decision, rationale, alternatives considered and why each lost, `Reverses when:` condition, optional revisit condition.
+- **Reverses when:** a required condition that would invalidate the decision — makes it falsifiable instead of just revisitable. `/neo:gc` treats a decision whose reversal condition has come true as stale and flags it.
 
 ### BRIEF.md — pivots only
 

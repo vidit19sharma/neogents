@@ -9,7 +9,7 @@ Scan: !`bash "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/brain-gc.sh" 2>/dev/null || ec
 
 ## Steps
 
-1. **Guard**: if `.neo/brain/` is missing, stop and point to `/neo:init`. If the scan above reports healthy (no dead anchors, no aged, no undated), report "Brain healthy — nothing to collect" and stop.
+1. **Guard**: if `.neo/brain/` is missing, stop and point to `/neo:init`. If the scan above reports healthy (no dead anchors, no aged, no undated), report "Brain healthy — nothing to collect" and stop. Also check `DECISIONS.md`: for each entry, if its `Reverses when:` condition has come true, flag it as stale/superseded.
 
 2. **Spawn neo-shadow** (Agent tool) with the 6-section contract. TASK: review ONLY the flagged entries from the scan against the current codebase, one verdict each:
    - **KEEP** — still true. For `UNDATED` entries, stamp today's date: `- [YYYY-MM-DD] <unchanged text>`. For `AGED` entries confirmed still true, refresh the datestamp (date = last confirmed).
