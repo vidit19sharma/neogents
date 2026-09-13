@@ -23,6 +23,16 @@ if command -v jq >/dev/null 2>&1; then
   LAST_MSG="$(printf '%s' "$INPUT" | jq -r '.last_assistant_message // empty' 2>/dev/null || true)"
 fi
 
+# last_assistant_message is model-controlled: a newline in it would end the
+# checkpoint line and let the model forge '- branch:' / '- head:' entries the
+# next session reads back as machine-written fact.
+LAST_MSG="$(printf '%s' "$LAST_MSG" | tr '\n\r' '  ')"
+
+# `git branch --show-current` prints nothing and exits 0 on a detached HEAD,
+# so a `|| echo '?'` fallback never fires.
+BRANCH="$(git branch --show-current 2>/dev/null)"
+[ -n "$BRANCH" ] || BRANCH="?"
+
 OUT=".neo/CHECKPOINT.md"
 
 # Throttle Stop-triggered writes; a PreCompact snapshot must never be skipped.
@@ -35,7 +45,7 @@ fi
   echo ""
   echo "- when: $(date '+%Y-%m-%d %H:%M:%S %z')"
   echo "- event: ${EVENT:-Stop}"
-  echo "- branch: $(git branch --show-current 2>/dev/null || echo '?')"
+  echo "- branch: $BRANCH"
   echo "- head: $(git log -1 --oneline 2>/dev/null || echo 'no commits')"
   echo ""
   echo "## Uncommitted files"
