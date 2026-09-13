@@ -16,6 +16,11 @@ if [ ! -d "$BRAIN" ]; then
   exit 0
 fi
 
+# Session start timestamp for stop-gate.sh: "newer than this" is the only
+# reliable way to tell work done in THIS session from pre-existing repo state.
+# Never committed (brain-sync's pathspec is .neo/brain only).
+touch ".neo/.session" 2>/dev/null || true
+
 # Brain files are project data, not instructions, and anything that ever passed
 # through the project can end up in them. Fence the dump with a per-run nonce so
 # the content cannot forge the terminator and speak as the harness, and cap each

@@ -29,19 +29,37 @@ fi
 [ -d ".neo/brain" ] || exit 0
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
 
-# Dirty code (outside .neo/) with an untouched brain = stale memory.
-CODE_DIRTY="$(git status --porcelain -- ':(exclude).neo' 2>/dev/null | grep -c . || true)"
-BRAIN_DIRTY="$(git status --porcelain -- .neo/brain 2>/dev/null | grep -c . || true)"
+# With .neo/ gitignored (a supported setup) git reports nothing for brain paths,
+# so there is no honest way to tell a saved brain from an unsaved one. Stand down.
+git check-ignore -q .neo 2>/dev/null && exit 0
 
-# A brain that was saved AND committed leaves nothing dirty, so dirtiness alone
-# punishes the sessions that did the right thing: a brain landed in the last
-# commit counts as saved.
-BRAIN_COMMITTED=0
-git log -1 --name-only --pretty=format: 2>/dev/null | grep -q '^\.neo/brain/' && BRAIN_COMMITTED=1
+# Everything below compares against the session start marker written by
+# brain-load.sh. Git state alone cannot answer "did THIS session save?":
+# repo dirt predates the session, and brain-sync.sh commits the brain at every
+# SessionEnd, so "the brain is in HEAD" is permanently true from session 2 on
+# and silently retires the gate forever.
+MARKER=".neo/.session"
+[ -f "$MARKER" ] || exit 0
 
-if [ "${CODE_DIRTY:-0}" -gt 0 ] && [ "${BRAIN_DIRTY:-0}" -eq 0 ] && [ "$BRAIN_COMMITTED" -eq 0 ]; then
+code_touched_this_session() {
+  git status --porcelain -z -- ':(exclude).neo' 2>/dev/null |
+    while IFS= read -r -d '' entry; do
+      f="${entry:3}"
+      [ -e "$f" ] || continue
+      if [ -n "$(find "$f" -prune -newer "$MARKER" 2>/dev/null)" ]; then
+        echo 1
+        return 0
+      fi
+    done
+}
+
+brain_touched_this_session() {
+  find .neo/brain -type f -newer "$MARKER" 2>/dev/null | head -n 1
+}
+
+if [ -n "$(code_touched_this_session)" ] && [ -z "$(brain_touched_this_session)" ]; then
   cat >&2 <<'EOF'
-[neo stop-gate] The repo has uncommitted code changes (this session or earlier) but the second brain was not updated.
+[neo stop-gate] Code changed during this session but the second brain was not updated.
 Before finishing: spawn neo-shadow with the session delta (what happened, what changed, decisions, lessons, next steps) or run /neo:save.
 If there is genuinely nothing worth saving, finish again and this gate will let you through.
 EOF

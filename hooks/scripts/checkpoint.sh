@@ -51,7 +51,7 @@ fi
   echo "## Uncommitted files"
   echo ""
   echo '```'
-  git status --short 2>/dev/null | head -n 100 || true
+  git status --short -- ':(exclude).neo/.session' 2>/dev/null | head -n 100 || true
   echo '```'
   echo ""
   echo "## Diff stat (vs HEAD)"
