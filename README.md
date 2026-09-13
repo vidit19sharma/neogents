@@ -68,6 +68,7 @@ Spawn depth is capped at 2 (main thread -> specialist). Leaf agents have no `Age
 | `/neo:train` | Promote a recurring workflow from `WORKFLOWS.md` into a project skill (human-gated) |
 | `/neo:gc` | Garbage-collect stale lessons: deterministic scan, then neo-shadow keeps / rewrites / archives flagged entries |
 | `/neo:recall` | Grep project memory (`.neo/brain`, `.neo/plans`, `.neo/runs`) for past decisions and work — file:line pointers, no re-exploration |
+| `/neo:evolve` | Turn accumulated `FRICTION.md` evidence into ONE bounded, human-approved edit to an agent prompt, skill, or template (never hooks or CI) |
 
 ---
 
@@ -155,7 +156,7 @@ neo/
 │   ├── neo-shadow.md
 │   ├── trinity.md
 │   └── smith.md
-├── skills/                  # 9 commands (init, save, status, plan, review, map, train, gc, recall)
+├── skills/                  # 10 commands (init, save, status, plan, review, map, train, gc, recall, evolve)
 │   └── map/
 ├── hooks/
 │   ├── hooks.json

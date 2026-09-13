@@ -109,7 +109,7 @@ PROGRESS.md     (tail -n 20 only)
 ARCHITECTURE.md   — read when patterns are relevant; INDEX tells you what's there
 DECISIONS.md      — read when a past decision is relevant; INDEX tells you what's there
 WORKFLOWS.md      — read when reviewing workflow candidates or running /neo:train
-FRICTION.md       — read when reviewing what keeps going wrong
+FRICTION.md       — read when running /neo:evolve or reviewing what keeps going wrong
 ```
 
 **Checkpoint:** if `.neo/CHECKPOINT.md` exists and is less than an hour old, `brain-load.sh` cats it too. It's a machine-written snapshot from the last session's Stop or PreCompact hook (branch, git status, diff stat, last assistant message) — a crash recovery aid, not part of the curated brain. Newest wins; safe to delete.

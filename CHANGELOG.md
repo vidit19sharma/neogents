@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Run ledger: every subagent spawn is auto-logged by `run-ledger.sh` (PostToolUse on Agent/Task) to `.neo/runs/YYYY-MM-DD.md` — agent, task, verdict, first line; responses over 1500 chars get their own report file with a pointer.
 - `FRICTION.md` brain file (9th): append-only evidence ledger of user corrections, smith BLOCKs, failed-fix escalations, and reverts after approval, with stable `[F-NNN]` IDs anchored to the NEO component they implicate.
 - `/neo:recall` command (9th): greps `.neo/brain`, `.neo/plans`, and `.neo/runs` for a term and answers from `file:line` pointers before re-exploring the codebase.
+- `/neo:evolve` command (10th): clusters `FRICTION.md` evidence and proposes ONE bounded, human-approved edit to an agent prompt, skill, or template — with an evidence manifest (entries cited, root cause, targeted fix, predicted impact). May never touch `hooks/`, `.claude-plugin/`, or CI.
 
 ## [0.1.0] - 2026-07-13
 

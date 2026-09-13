@@ -44,7 +44,7 @@ Changes to hook scripts take effect on the next session start (or next tool use,
 | Directory | Contents |
 |---|---|
 | `agents/` | 4 agent definitions (`*.md` with YAML frontmatter). Each file is the full system prompt for that specialist. |
-| `skills/` | 9 slash commands (`/neo:init`, `/neo:save`, `/neo:status`, `/neo:plan`, `/neo:review`, `/neo:map`, `/neo:train`, `/neo:gc`, `/neo:recall`). Each is a subdirectory with a `SKILL.md`. |
+| `skills/` | 10 slash commands (`/neo:init`, `/neo:save`, `/neo:status`, `/neo:plan`, `/neo:review`, `/neo:map`, `/neo:train`, `/neo:gc`, `/neo:recall`, `/neo:evolve`). Each is a subdirectory with a `SKILL.md`. |
 | `hooks/` | `hooks.json` (event wiring) and `scripts/` (8 shell scripts that implement the enforcement layer). |
 | `templates/` | Starter files for `/neo:init`: 9 brain file templates, a `CLAUDE.md` template, and a plan template. |
 | `docs/` | Architecture, hooks reference, customization guide, brain spec, workflow walkthrough, portability notes, and the design decision log under `specs/`. |

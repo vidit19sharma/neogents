@@ -30,7 +30,7 @@ body:
       options:
         - Agent (neo / neo-shadow / trinity / smith)
         - Hook (brain-load / jail / format / checkpoint / stop-gate / brain-sync)
-        - Command (/neo:init / save / status / plan / review / map / recall / gc)
+        - Command (/neo:init / save / status / plan / review / map / train / recall / gc / evolve)
         - Second brain files
         - Templates
         - Docs
