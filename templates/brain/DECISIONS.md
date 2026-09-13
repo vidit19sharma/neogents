@@ -12,7 +12,6 @@
 - **Rationale**: why — the constraint or evidence that forced it
 - **Alternatives**: what was rejected and the one-line reason each lost
 - **Reverses when**: the condition that would invalidate this decision
-- **Revisit if**: condition under which this should be reconsidered (optional)
 
 -->
 
