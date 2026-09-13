@@ -86,7 +86,7 @@ File edited
      |
      v
 [PostToolUse / Edit|Write|NotebookEdit] format.sh fires
-     |  runs project-local formatter (prettier, ruff, gofmt, rustfmt)
+     |  prettier (project-local, config-gated) or ruff/black/gofmt/rustfmt (PATH, config opt-in)
      |  skips .neo/ files — brain layout is content, not code
      |  fail-open: never breaks an edit
      |
@@ -334,7 +334,7 @@ Here's the full trace through DEEP tier.
 
 **9. Simplify.** Smith approves. NEO strips dead code, needless abstraction, and comment slop from the diff scope itself, then re-runs the tests.
 
-**10. Brain save.** NEO assembles the session delta: what was built, which files changed, the Redis decision and why, where to pick up next. Spawns neo-shadow, which rewrites `ACTIVE.md`, appends to `PROGRESS.md`, and records the Redis decision in `DECISIONS.md`. `jail.sh` fires on every neo-shadow write; all paths are under `.neo/`, so it exits 0.
+**10. Brain save.** NEO assembles the session delta: what was built, which files changed, the Redis decision and why, where to pick up next. Spawns neo-shadow, which rewrites `ACTIVE.md`, appends to `PROGRESS.md`, and records the Redis decision in `DECISIONS.md`. `jail.sh` fires on every neo-shadow write; all paths are under `.neo/brain/`, so it exits 0.
 
 **11. Stop gate.** NEO finishes responding. New middleware files are newer than the session's `.neo/.session` marker, but so is the brain (neo-shadow just updated it). The gate's block condition — dirty file newer than the marker AND no brain file newer — doesn't hold, so the session completes.
 
@@ -348,5 +348,5 @@ A few things worth stating explicitly, since they're easy to assume:
 
 - **No auto-commit of code.** Shipping only happens when you explicitly ask. (`brain-sync.sh` commits only `.neo/brain/`.)
 - **No vector database.** The brain is plain markdown files. No embeddings, no external services.
-- **No MCP servers.** Zero runtime dependencies beyond `jq` and project-local formatters.
+- **No MCP servers.** Zero runtime dependencies beyond `jq` and the optional formatters it detects (prettier project-local, the rest via `PATH`).
 - **No speculative file reads.** NEO explores rather than guessing about code it hasn't read — and greps `.neo/runs/` before re-doing recon it already paid for.

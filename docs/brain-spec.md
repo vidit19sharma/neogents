@@ -106,12 +106,17 @@ INDEX.md        (full)
 PROGRESS.md     (tail -n 20 only)
 ```
 
-**What loads on demand:**
+**What loads on demand** (the runtime pointer below names these three):
 
 ```
 ARCHITECTURE.md   — read when patterns are relevant; INDEX tells you what's there
 DECISIONS.md      — read when a past decision is relevant; INDEX tells you what's there
 WORKFLOWS.md      — read when reviewing workflow candidates or running /neo:train
+```
+
+**Never auto-loaded, not named in the runtime pointer:**
+
+```
 FRICTION.md       — read when running /neo:evolve or reviewing what keeps going wrong
 ```
 
@@ -168,8 +173,8 @@ Violating this rule means the next session gets contradictory ground truth. neo-
 
 `brain-sync.sh` runs at `SessionEnd`. It commits `.neo/brain/` automatically if:
 
-- The project is inside a git work tree.
-- No rebase, merge, or cherry-pick is in progress.
+- The project is inside a git work tree, on a real branch (not detached HEAD).
+- No rebase, merge, cherry-pick, revert, or bisect is in progress.
 - There are staged or unstaged changes under `.neo/brain/`.
 
 Commit message format: `neo: brain sync YYYY-MM-DD`.

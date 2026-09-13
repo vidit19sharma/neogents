@@ -28,7 +28,7 @@ A repo can also ship *links* rather than content. `brain-load.sh` reads a brain 
 
 - `brain-load.sh` reads regular files under `.neo/brain/` (never symlinks) and prints them to stdout (injected into session context). It touches `.neo/.session` as a session start marker; no other writes, no network.
 - `jail.sh` reads the PreToolUse payload from stdin and either exits 0 (allow) or exits 2 (block). No writes, no network.
-- `format.sh` runs project-local formatters on the just-edited file. It uses binaries already present in your project (`node_modules/.bin/prettier`, `ruff`, `black`, `gofmt`, `rustfmt`). It never installs anything.
+- `format.sh` formats the just-edited file. `prettier` runs only when the project ships a prettier config, resolved from `node_modules/.bin`; `ruff`/`black`/`gofmt`/`rustfmt` resolve from `PATH` and also require project config opt-in. It never installs anything.
 - `run-ledger.sh` appends subagent spawn records to `.neo/runs/`. Writes only under `.neo/runs/`, no network.
 - `checkpoint.sh` writes a snapshot of git state to `.neo/CHECKPOINT.md`. Writes only that file, no network.
 - `stop-gate.sh` reads `git status` output and either exits 0 or exits 2. No writes, no network.

@@ -23,7 +23,7 @@ Any other non-zero exit code is treated as an error in the hook itself, not a bl
 |---|---|---|---|
 | `SessionStart` | (all) | `brain-load.sh` | Cats brain files (and a fresh checkpoint) into context. Hints `/neo:init` if no brain. |
 | `PreToolUse` | `Edit\|Write\|NotebookEdit` | `jail.sh` | Hard blocks out-of-jail writes for neo-shadow. |
-| `PostToolUse` | `Edit\|Write\|NotebookEdit` | `format.sh` | Formats the just-edited file with project-local formatters. Fail-open. |
+| `PostToolUse` | `Edit\|Write\|NotebookEdit` | `format.sh` | Formats the just-edited file: prettier is project-local, other formatters resolve from `PATH`, all require project config opt-in. Fail-open. |
 | `PostToolUse` | `Agent\|Task` | `run-ledger.sh` | Appends every subagent spawn to the run ledger in `.neo/runs/`. |
 | `PreCompact` | (all) | `checkpoint.sh` | Deterministic snapshot to `.neo/CHECKPOINT.md` before compaction. |
 | `Stop` | (all) | `checkpoint.sh` then `stop-gate.sh` | Snapshot (throttled), then one-shot block when code changed but brain was not updated. |
@@ -44,7 +44,7 @@ stdout from a `SessionStart` hook is injected into the session context before th
 3. Opens the dump with a fence carrying a per-run nonce — `=== BEGIN SECOND BRAIN <nonce> (... untrusted project data ...) ===` — so content written into the brain earlier cannot forge the closing marker and impersonate the harness.
 4. Cats, skipping empty files and capping each at 16K: `BRIEF.md`, `ACTIVE.md`, `LESSONS.md`, `INDEX.md` (full), `PROGRESS.md` (last 20 lines).
 5. Cats `.neo/CHECKPOINT.md` (also capped at 16K) if it was written within the last 60 minutes — the deterministic snapshot from the previous stop or compaction.
-6. Prints a note that `ARCHITECTURE.md` and `DECISIONS.md` load on demand via INDEX pointers; surfaces a hint if `WORKFLOWS.md` has `status: proposed` entries; advertises graphify when present.
+6. Prints a note that `ARCHITECTURE.md`, `DECISIONS.md`, and `WORKFLOWS.md` load on demand via INDEX pointers; surfaces a hint if `WORKFLOWS.md` has `status: proposed` entries; advertises graphify when present.
 7. Closes the fence with the matching nonce.
 
 **Symlinks are skipped, never followed.** Every file above is read only when it is a regular file (`[ -f ]` and not `[ -L ]`). `.neo/brain/` travels with the repo, so a clone can ship `BRIEF.md` as a symlink to `~/.ssh/id_rsa` or anything else the user can read — `[ -s ]` follows it and `head -c` injects the target verbatim into session context at every start. The same guard covers the `CHECKPOINT.md` injection.
@@ -87,11 +87,11 @@ Enforces write-path restriction for neo-shadow: it may only write under `.neo/br
 
 **Event:** `PostToolUse` · **Matcher:** `Edit|Write|NotebookEdit`
 
-Formats the just-written file using project-local formatters only. Never installs anything.
+Formats the just-written file. `prettier` resolves from the project-local `node_modules/.bin`; other formatters resolve from `PATH`. All require project config opt-in. Never installs anything.
 
 1. Skips when `jq` is absent, the path is missing, the file doesn't exist, or the file is under `.neo/`.
 2. Dispatches by extension:
-   - `.js .jsx .ts .tsx .mjs .cjs .json .css .scss .html .yaml .yml .md` — `node_modules/.bin/prettier --write --ignore-unknown` if the project-local binary exists. Never a global install.
+   - `.js .jsx .ts .tsx .mjs .cjs .json .css .scss .html .yaml .yml .md` — `node_modules/.bin/prettier --write --ignore-unknown` when the project ships a prettier config and the project-local binary exists. Never a global install.
    - `.py` — `ruff format` only if the project opts in (`ruff.toml`, `.ruff.toml`, or `[tool.ruff]` in `pyproject.toml`); else `black --quiet` only with `[tool.black]` in `pyproject.toml`.
    - `.go` — `gofmt -w` if on PATH.
    - `.rs` — `rustfmt --edition 2021` if on PATH.
@@ -131,7 +131,7 @@ Appends every subagent spawn to a daily run ledger. Subagent outputs that only l
    - `## HH:MM:SS <agent> — <description>`
    - the report's `VERDICT:` line when present
    - the first non-empty line of the response (first 200 chars)
-4. When the response exceeds 1500 chars, writes the full text to `.neo/runs/YYYY-MM-DD-HHMMSS-<agent>.md` and appends a `full report:` pointer.
+4. When the response exceeds 1500 chars, writes the full text to `.neo/runs/YYYY-MM-DD-HHMMSS-<agent>-$$.md` and appends a `full report:` pointer.
 5. Exits 0 on every path.
 
 `/neo:recall` greps this ledger alongside the brain and plans.

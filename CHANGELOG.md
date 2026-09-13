@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rewrote docs (architecture, hooks reference, workflow, customization, portability) for the lean roster.
 - `SECURITY.md` now notes that `.neo/brain/` content is untrusted input: the nonce fence around the session-start dump limits impersonation, not trust — read a cloned repo's brain files the way you'd read its `CLAUDE.md`.
 - Docs drift sweep: finished the `sprint contract` → `contract` rename across `architecture.md` and `workflow.md`, updated the jail's stale `.neo/` scope references to `.neo/brain/`, and synced the `ACTIVE.md` and load-path descriptions across `brain-spec.md` and `README.md`.
+- Second docs drift sweep: fixed the "project-local formatters" overclaim (only prettier is `node_modules/.bin`-resolved; ruff/black/gofmt/rustfmt are `PATH`-resolved, all config-gated) across `SECURITY.md`, `CONTRIBUTING.md`, `docs/customization.md`, `docs/hooks-reference.md`, and `docs/workflow.md`; corrected `neo-shadow.md`'s own jail claim to `.neo/brain/`; synced `brain-spec.md`'s Git Sync section with `brain-sync.sh`'s detached-HEAD and revert/bisect guards; added `WORKFLOWS.md` to the on-demand file lists in `README.md` and `docs/hooks-reference.md`; separated `FRICTION.md` from the three auto-pointer files in `brain-spec.md`; fixed the run-ledger report filename's missing `-$$` suffix; and added a smith checklist line for verifying the diff against a plan's negotiated contract.
 
 ### Added
 

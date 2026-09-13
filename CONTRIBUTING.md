@@ -113,7 +113,7 @@ All hook scripts must follow these rules. PRs that violate them will be asked to
 - **Exit 2 is reserved for deliberate blocks.** When you exit 2, you must write a clear, actionable message to stderr. That message is fed back to the agent as corrective feedback.
 - **No new runtime dependencies** beyond bash, jq, and git. The plugin works with zero external installs; don't add one.
 - **Scripts must pass `bash -n`** (syntax check) and `shellcheck` (if installed). Run both before opening a PR.
-- **No global tool installs.** `format.sh` uses project-local binaries only (`node_modules/.bin/prettier`, not a global one). Follow the same pattern for any new formatter or tool dispatch.
+- **No global tool installs without opt-in.** `format.sh`'s prettier support resolves from the project-local `node_modules/.bin/prettier`; other formatters (ruff, black, gofmt, rustfmt) resolve from `PATH` but require project config opt-in before running. Follow the same pattern for any new formatter or tool dispatch.
 
 ---
 
