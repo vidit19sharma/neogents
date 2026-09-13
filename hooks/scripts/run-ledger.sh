@@ -28,8 +28,13 @@ oneline() { printf '%s' "$1" | tr '\n\r' '  '; }
 
 AGENT="$(printf '%s' "$INPUT" | jq -r '.tool_input.subagent_type // "unknown"' 2>/dev/null || echo "unknown")"
 DESC="$(printf '%s' "$INPUT" | jq -r '.tool_input.description // ""' 2>/dev/null | head -c 120)"
-AGENT="$(oneline "$AGENT")"
 DESC="$(oneline "$DESC")"
+
+# AGENT also names the report file below. A '/' in it would point the redirect at
+# a directory that does not exist, so the report silently vanishes and the shell
+# prints the failure to stderr, where the harness shows it to the user.
+AGENT="$(printf '%s' "$AGENT" | tr -cd 'A-Za-z0-9_-')"
+[ -n "$AGENT" ] || AGENT="unknown"
 
 # Flatten the response to plain text whatever shape the harness returns.
 RESPONSE="$(printf '%s' "$INPUT" | jq -r '

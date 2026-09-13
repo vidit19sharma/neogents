@@ -571,6 +571,20 @@ jobs:
           [ "$(grep -c '^## ' "$ledger")" -eq 1 ] || { echo "forged a second ledger heading"; exit 1; }
           grep -q 'forged' "$ledger" || { echo "field content was dropped instead of flattened"; exit 1; }
 
+      - name: run-ledger.sh sanitizes the agent name before using it as a path
+        run: |
+          set -e
+          r="$PWD/hooks/scripts/run-ledger.sh"
+          tmp=$(mktemp -d)
+          cd "$tmp"
+          mkdir .neo
+          long=$(printf 'x%.0s' $(seq 1 2000))
+          err=$(mktemp)
+          echo "{\"tool_input\":{\"subagent_type\":\"foo/bar\"},\"tool_response\":\"${long}\"}" | bash "$r" 2> "$err"
+          [ ! -s "$err" ] || { echo "leaked a redirect failure to stderr: $(cat "$err")"; exit 1; }
+          ls .neo/runs/*-foobar-*.md >/dev/null 2>&1 || { echo "no report file under a sanitized name"; exit 1; }
+          grep -q 'full report:' ".neo/runs/$(date +%Y-%m-%d).md" || { echo "ledger lost the report pointer"; exit 1; }
+
       - name: brain-gc.sh counts a final line with no trailing newline
         run: |
           set -e
