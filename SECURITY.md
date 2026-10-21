@@ -24,6 +24,14 @@ The load fences the dump with a per-run nonce and labels it explicitly as untrus
 
 A repo can also ship *links* rather than content. `brain-load.sh` reads a brain file only when it is a regular file and not a symlink — a clone shipping `.neo/brain/BRIEF.md` as a symlink to `~/.ssh/id_rsa` would otherwise have its target read and injected into session context at every session start. `jail.sh` refuses symmetrically on the write side: it will not write through a symlink or a hardlink, and it blocks outright if `.neo` or `.neo/brain` is itself a symlink, which would relocate the entire jail somewhere the agent was never meant to reach.
 
+### Skills installed by `/neo:equip` are untrusted input
+
+`/neo:equip` fetches third-party skill files from the web. A skill is a prompt that runs with your session's tools, so installing one carries the same risk as running a third-party script. The command never runs on its own; it fires only on explicit invocation.
+
+You pick from a shortlist of at most three candidates (no pick, no fetch), and your pick is fetched at a pinned commit SHA, not a branch. smith audits the fetched file before anything is written, covering prompt injection, exfiltration, fetch-and-execute, and permission grabs in frontmatter (`allowed-tools`, `hooks`, `mcpServers`), and flags any companion hooks, MCP configs, or executables to you. A BLOCK verdict stops the install. On APPROVE, you see the exact target path and the full content, and NEO writes nothing without your yes. Only `.claude/skills/<name>/SKILL.md` is written: no companion files, submodules, or symlinks. The install is recorded in the brain's `DECISIONS.md` with the source repo and SHA, and updating means re-running `/neo:equip`.
+
+smith's audit is a best-effort LLM review. A skill is itself a prompt, and adversarial text can target the reviewer too, so the audit lowers risk but guarantees nothing. The controls that carry the weight are your read-before-write approval, the SHA pin (the content can't change after review), and, once you commit it, the vendored copy in git: every installed skill is then diff-reviewable and shows up for teammates in PRs. Read the full skill before you approve it, as you would any third-party script.
+
 ### What the hook scripts deliberately do
 
 - `brain-load.sh` reads regular files under `.neo/brain/` (never symlinks) and prints them to stdout (injected into session context). It touches `.neo/.session` as a session start marker; no other writes, no network.
