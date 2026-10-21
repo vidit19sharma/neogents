@@ -29,7 +29,7 @@ body:
       label: Component
       options:
         - Agent (neo / neo-shadow / trinity / smith)
-        - Hook (brain-load / jail / format / checkpoint / stop-gate / brain-sync)
+        - Hook (brain-load / jail / format / run-ledger / checkpoint / stop-gate / brain-sync)
         - Command (/neo:init / save / status / plan / review / map / train / recall / gc / evolve / equip)
         - Second brain files
         - Templates

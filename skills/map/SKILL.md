@@ -3,6 +3,8 @@ name: map
 description: Deep codebase mapping. Fans out parallel exploration recon across an existing repository and has neo-shadow synthesize the findings into ARCHITECTURE.md. Use when adopting NEO in a mature codebase, when ARCHITECTURE.md is empty or stale, or when the user asks to map or document the codebase structure.
 ---
 
+# /neo:map — map the codebase into ARCHITECTURE.md
+
 Build or refresh the second brain's map of this codebase.
 
 ## Current state
