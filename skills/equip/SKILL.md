@@ -1,6 +1,7 @@
 ---
 name: equip
-description: Find and install a third-party Claude Code skill that fits this project's stack. Searches the web and GitHub for candidates, has smith audit the source for prompt injection and permission grabs, and vendors the approved file into the project's .claude/skills/ at a pinned commit. Explicit invocation only — use ONLY when the user runs /neo:equip or directly asks to find and install a skill. Never invoke as a side effect of another task.
+description: Find, audit, and vendor a third-party Claude Code skill that fits this project's stack. Searches the web and GitHub for candidates, has smith audit the source for prompt injection and permission grabs, and vendors the approved file into the project's .claude/skills/ at a pinned commit. Runs only when the user types /neo:equip; model invocation is disabled.
+disable-model-invocation: true
 ---
 
 # /neo:equip — source a skill from the wild

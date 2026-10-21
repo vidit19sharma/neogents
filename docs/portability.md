@@ -62,7 +62,7 @@ Hook event names and the plugin hook mechanism are harness-specific. The shell s
 **3. `.claude-plugin/`**
 The plugin manifest format is Claude Code specific. A new harness needs its own plugin registration mechanism.
 
-The brain files, agent prose, skill files, and templates are all harness-neutral and require no changes.
+The brain files, agent prose, skill files, and templates are all harness-neutral and require no changes. One caveat: `disable-model-invocation` in `skills/equip/SKILL.md` is a Claude Code field; other harnesses fall back to the prose rule in `agents/neo.md`'s Hard Rules.
 
 **The list stays at three on purpose.** Claude Code lets a skill or subagent declare hooks in its own frontmatter, which would scatter enforcement across `agents/*.md` and `skills/*/SKILL.md` and turn three swap points into a dozen. That route is closed for this plugin anyway — plugin subagents ignore frontmatter `hooks` — so every hook stays declared in `hooks/hooks.json`. See [hooks-reference.md](hooks-reference.md#hook-scoping-why-every-hook-stays-in-hooksjson). An adapter author swaps one file, not a component tree.
 

@@ -26,7 +26,7 @@ A repo can also ship *links* rather than content. `brain-load.sh` reads a brain 
 
 ### Skills installed by `/neo:equip` are untrusted input
 
-`/neo:equip` fetches third-party skill files from the web. A skill is a prompt that runs with your session's tools, so installing one carries the same risk as running a third-party script. The command never runs on its own; it fires only on explicit invocation.
+`/neo:equip` fetches third-party skill files from the web. A skill is a prompt that runs with your session's tools, so installing one carries the same risk as running a third-party script. The command never runs on its own: its frontmatter sets `disable-model-invocation: true`, so only you can start it by typing `/neo:equip`, and NEO is instructed to point you there instead of installing skills any other way.
 
 You pick from a shortlist of at most three candidates (no pick, no fetch), and your pick is fetched at a pinned commit SHA, not a branch. smith audits the fetched file before anything is written, covering prompt injection, exfiltration, fetch-and-execute, and permission grabs in frontmatter (`allowed-tools`, `hooks`, `mcpServers`), and flags any companion hooks, MCP configs, or executables to you. A BLOCK verdict stops the install. On APPROVE, you see the exact target path and the full content, and NEO writes nothing without your yes. Only `.claude/skills/<name>/SKILL.md` is written: no companion files, submodules, or symlinks. The install is recorded in the brain's `DECISIONS.md` with the source repo and SHA, and updating means re-running `/neo:equip`.
 
