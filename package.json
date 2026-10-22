@@ -4,6 +4,7 @@
   "description": "NEO: an orchestrator that runs the show and a second brain that never forgets. Claude Code plugin and OpenCode adapter.",
   "license": "MIT",
   "type": "module",
+  "private": true,
   "scripts": {
     "test": "node --test adapters/opencode/test/"
   }
