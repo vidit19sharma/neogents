@@ -143,7 +143,7 @@ Input: `agents/*.md`, `skills/*/SKILL.md` read from the package. Output: plain o
 | Install | `/plugin marketplace add vidit19sharma/neogents` → `/plugin install neo@neogents` | `npx @vidit19sharma/neogents setup` |
 | What `setup` does | prints those two commands; never copies into `~/.claude/` | adds the package to `plugin: [...]` and sets `default_agent: "neo"` in `~/.config/opencode/opencode.json`. Nothing else: the plugin registers agents and commands itself at load (Q1). No files on disk, no manifest to track. |
 | Update | `/plugin update` | `npx @vidit19sharma/neogents@latest setup` is idempotent; setup normalizes versioned plugin entries to unpinned `@vidit19sharma/neogents`, which OpenCode re-resolves to latest. |
-| Project step | `/neo:init` | `/neo:init` (same name), or `npx … init` — harness-free scaffold: `.neo/brain/` from templates, `.neo/plans/`, `.neo/.gitignore`, `AGENTS.md`, `CLAUDE.md` import line. Leaves BRIEF/ARCHITECTURE as template placeholders and says so. |
+| Project step | `/neo:init` | `/neo:init` (same name), or `npx … init` — harness-free scaffold: `.neo/brain/` from templates, `.neo/plans/`, `.neo/.gitignore`; instruction files: neither → both templates, only `AGENTS.md` → `CLAUDE.md` import, both → unchanged, only `CLAUDE.md` → untouched (migration requires explicit approval in `/neo:init`). Leaves BRIEF/ARCHITECTURE as template placeholders and says so. |
 
 **Package:** `package.json` at root. `files`: `agents/`, `skills/`, `hooks/scripts/`, `templates/`, `adapters/opencode/`, `bin/`. Not shipped: `hooks/hooks.json`, `.claude-plugin/`, `docs/`, `.github/`. No `dependencies`; `@opencode-ai/plugin` only as a `devDependency` for editor types. `bin: {"neogents": "bin/neogents.js"}`.
 

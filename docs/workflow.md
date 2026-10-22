@@ -47,7 +47,7 @@ Run `/neo:init` to bootstrap the brain. Here's what happens:
 
 3. **Interview.** NEO asks one question at a time, leading each with its best-guess answer inferred from the codebase. It reads `package.json`, `Makefile`, and similar files before asking about build commands. It confirms; it doesn't ask blind.
 
-4. **Write.** Fills `.neo/brain/BRIEF.md` from your answers. If the codebase is non-empty, NEO does a quick exploration pass to populate the stack and layout sections of `ARCHITECTURE.md`. With neither instruction file, it copies both templates and fills the AGENTS command placeholders; with only `AGENTS.md`, it copies the `CLAUDE.md` import template; with both, it leaves them alone. With only `CLAUDE.md`, it offers to move its content into `AGENTS.md` and replace `CLAUDE.md` with the template (`@AGENTS.md` + Compact Instructions), only on an explicit yes. On no, both stay untouched; OpenCode reads `CLAUDE.md` as a fallback only until an `AGENTS.md` appears.
+4. **Write.** Fills `.neo/brain/BRIEF.md` from your answers. If the codebase is non-empty, NEO does a quick exploration pass to populate the stack and layout sections of `ARCHITECTURE.md`. With neither instruction file, it copies both templates and fills the AGENTS command placeholders; with only `AGENTS.md`, it copies the `CLAUDE.md` import template; with both, it leaves them alone. A project with only `CLAUDE.md` keeps it untouched; see the README's [First run](../README.md#first-run) section for migration.
 
 5. **Report.** Lists the created files and confirms: "Brain initialized. It loads automatically next session; save anytime with /neo:save."
 

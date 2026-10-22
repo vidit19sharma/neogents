@@ -1,6 +1,6 @@
 ---
 name: init
-description: Initialize the NEO second brain in this project. Scaffolds .neo/brain/ from templates, runs a short interview to fill BRIEF.md, and writes starter AGENTS.md and CLAUDE.md files if absent. Use when a project has no .neo/ directory yet.
+description: Initialize the NEO second brain in this project. Scaffolds .neo/brain/ from templates, runs a short interview to fill BRIEF.md, and writes starter AGENTS.md and CLAUDE.md when the project has neither, keeping a legacy CLAUDE.md untouched unless migration is approved. Use when a project has no .neo/ directory yet.
 ---
 
 # /neo:init — bootstrap the second brain
