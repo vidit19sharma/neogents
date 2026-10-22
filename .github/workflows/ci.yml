@@ -64,6 +64,14 @@ jobs:
             fi
           done
 
+      - name: neo body stays harness-neutral
+        run: |
+          # neo.md's body must stay harness-neutral; Claude tool names live only in the harness block
+          body=$(awk '/<!-- harness:begin -->/{exit} {print}' agents/neo.md)
+          if printf '%s\n' "$body" | grep -nE '\b(TodoWrite|AskUserQuestion|WebFetch|WebSearch|NotebookEdit|MultiEdit)\b|\bAgent tool\b|`Agent`'; then
+            echo "harness-specific tool name in agents/neo.md neutral body"; exit 1
+          fi
+
       - name: Skill frontmatter matches directory name
         run: |
           set -e
