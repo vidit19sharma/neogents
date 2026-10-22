@@ -1,6 +1,10 @@
 import { spawnSync } from "node:child_process";
 import { join, resolve } from "node:path";
 
+export function resolveWorktree(worktree, directory) {
+  return (worktree && worktree !== "/" ? worktree : directory) || process.cwd();
+}
+
 export function runScript(scriptsDir, name, payload, worktree, { env = process.env, timeout = 15_000 } = {}) {
   // ponytail: synchronous by design — hooks are awaited and the scripts take ~200ms; the timeout bounds a hung git. Go async (spawn + promise) if the TUI ever stalls.
   const r = spawnSync("bash", [join(scriptsDir, name)], {

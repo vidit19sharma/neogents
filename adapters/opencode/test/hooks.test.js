@@ -3,7 +3,13 @@ import assert from "node:assert/strict";
 import { mkdtempSync, writeFileSync, chmodSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { runScript } from "../hooks.js";
+import { resolveWorktree, runScript } from "../hooks.js";
+
+test("resolveWorktree uses the launch directory when there is no git worktree", () => {
+  assert.equal(resolveWorktree("/repo", "/repo/sub"), "/repo");
+  assert.equal(resolveWorktree("/", "/tmp/x"), "/tmp/x");
+  assert.equal(resolveWorktree(undefined, undefined), process.cwd());
+});
 
 test("runScript feeds JSON on stdin, sets CLAUDE_PROJECT_DIR, returns status/stdout/stderr", () => {
   const dir = mkdtempSync(join(tmpdir(), "neo-hooks-"));
