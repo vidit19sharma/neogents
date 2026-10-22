@@ -277,3 +277,22 @@ test("adapter CI syntax-checks the bin and retains tests and version sync", () =
   assert.ok(adapter.includes("name: package.json version matches plugin.json"));
   assert.ok(adapter.includes("require('./.claude-plugin/plugin.json').version"));
 });
+
+test("publish workflow gates the tag and manifest versions before OIDC publish", () => {
+  const workflow = text(".github/workflows/publish.yml");
+  for (const required of [
+    "tags: ['v*']", "contents: read", "id-token: write",
+    "uses: actions/checkout@v4", "uses: actions/setup-node@v4", "node-version: 22",
+    "registry-url: https://registry.npmjs.org", "npm install -g npm@latest",
+    'a=$(node -p "require(\'./package.json\').version")',
+    'b=$(node -p "require(\'./.claude-plugin/plugin.json\').version")',
+    '[ "$GITHUB_REF_NAME" = "v$a" ]', '[ "$a" = "$b" ]',
+    "node --test adapters/opencode/test/", "npm publish --provenance --access public",
+  ]) assert.ok(workflow.includes(required), required);
+  const upgrade = workflow.indexOf("npm install -g npm@latest");
+  const tagGate = workflow.indexOf('[ "$GITHUB_REF_NAME" = "v$a" ]');
+  const tests = workflow.indexOf("node --test adapters/opencode/test/");
+  const publish = workflow.indexOf("npm publish --provenance --access public");
+  assert.ok(upgrade < tagGate && tagGate < tests && tests < publish);
+  assert.ok(!workflow.includes("NODE_AUTH_TOKEN"));
+});
