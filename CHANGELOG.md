@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `SECURITY.md` now notes that skills installed by `/neo:equip` are untrusted input: smith's audit is best-effort, and the load-bearing controls are the human read-before-write gate, the pinned SHA, and the vendored copy in git once the user commits it. The bug report template's Command dropdown now lists `equip`.
 - Docs drift sweep: finished the `sprint contract` → `contract` rename across `architecture.md` and `workflow.md`, updated the jail's stale `.neo/` scope references to `.neo/brain/`, and synced the `ACTIVE.md` and load-path descriptions across `brain-spec.md` and `README.md`.
 - Second docs drift sweep: fixed the "project-local formatters" overclaim (only prettier is `node_modules/.bin`-resolved; ruff/black/gofmt/rustfmt are `PATH`-resolved, all config-gated) across `SECURITY.md`, `CONTRIBUTING.md`, `docs/customization.md`, `docs/hooks-reference.md`, and `docs/workflow.md`; corrected `neo-shadow.md`'s own jail claim to `.neo/brain/`; synced `brain-spec.md`'s Git Sync section with `brain-sync.sh`'s detached-HEAD and revert/bisect guards; added `WORKFLOWS.md` to the on-demand file lists in `README.md` and `docs/hooks-reference.md`; separated `FRICTION.md` from the three auto-pointer files in `brain-spec.md`; fixed the run-ledger report filename's missing `-$$` suffix; and added a smith checklist line for verifying the diff against a plan's negotiated contract.
+- `agents/neo.md`: the recon sentence no longer names Claude Code tools; the Claude-specific block is wrapped in `<!-- harness:begin -->`/`<!-- harness:end -->` markers so adapters can swap it mechanically.
+- `docs/portability.md` rewritten as a per-guarantee enforcement table and the neutral hook contract, replacing the "swap three places" claim.
 
 ### Added
 
@@ -39,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - DEEP-tier execution now negotiates a contract per task before trinity starts: NEO gives trinity and smith the done-criteria and verify plan, smith objects once with concrete gaps until both agree, and the agreed contract is written into the plan artifact for smith's later review to check against.
 - `ACTIVE.md` gains an Open commitments checklist for promises made to the user that aren't yet delivered — edited in place, unlike the append-only `PROGRESS.md`.
 - Expanded CI: hook tests now run from a subdirectory and against pretty-printed payloads, matching how Claude Code actually invokes hooks.
+- `AGENTS.md` is the canonical project instruction file. `/neo:init` writes it from `templates/AGENTS.md` and writes a `CLAUDE.md` that imports it, so Claude Code, OpenCode, Codex, and Cursor read one copy.
 
 ### Fixed
 

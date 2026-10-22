@@ -1,93 +1,73 @@
 # NEO Portability
 
-**v1 is Claude Code only.** Multi-harness adapters are a v2 non-goal. This document explains what "harness-neutral authoring" means in practice, where the Claude Code specifics are isolated, and what a future adapter would need to swap.
+NEO runs on Claude Code today and on OpenCode through `adapters/opencode/` (see
+[specs/2026-10-22-opencode-adaptation-design.md](specs/2026-10-22-opencode-adaptation-design.md)).
+Codex, Kiro, and Cursor are future adapters. This document is the contract that keeps one source
+tree serving every harness, and the honest table of what each harness enforces.
 
-See also: [brain-spec.md](brain-spec.md) for the second brain contract, [customization.md](customization.md) for v1 configuration.
-
----
-
-## The Design Principle
-
-NEO's agent prose is written to describe behavior, not to invoke specific tools. The orchestration logic in `agents/neo.md` — intent classification, tiered pipeline, delegation contract, evidence rules, memory duties — is all harness-neutral. A reader on any platform can follow it.
-
-Claude Code specifics are isolated to **one clearly marked section** at the bottom of `agents/neo.md`:
-
-```markdown
-## Claude Code Specifics
-
-<!-- harness-specific section: swap this block when porting to another harness -->
-- Spawn specialists with the `Agent` tool (`subagent_type` = roster name); recon via the built-in exploration subagent types.
-- Track work with `TodoWrite`; ask the user structured questions with `AskUserQuestion` (one at a time).
-- Brain loading, path jails, and the stop-gate are enforced by plugin hooks — they are deterministic, not suggestions.
-- Verify edits with project linters/tests via `Bash`; prefer project-defined commands from CLAUDE.md.
-```
-
-Porting to another harness means replacing this block. The rest of the file stays.
+See also: [brain-spec.md](brain-spec.md) for the second brain contract, [hooks-reference.md](hooks-reference.md) for the scripts.
 
 ---
 
-## Concept Map
+## The rule: a project never contains harness-specific state
 
-The table below maps NEO concepts to their equivalents in other harnesses. This is a reference for future adapter authors, not a commitment to build them.
+Everything NEO writes into a project is harness-neutral: `.neo/**` (brain, plans, runs, checkpoint,
+session marker), `.claude/skills/` (read natively by Claude Code and OpenCode), `AGENTS.md` (the
+canonical instruction file), and a one-line `CLAUDE.md` that imports it. Adapters install under the
+user's home, never in the repo. Switching harness on a project means opening it in the other tool.
 
-| NEO concept | Claude Code | OpenCode | Codex |
+## Source of truth and derivation
+
+| Authored once | Derived per harness |
+|---|---|
+| `agents/*.md` — harness-neutral body; tool names only inside the `<!-- harness:begin -->` … `<!-- harness:end -->` block at the end of `agents/neo.md` | OpenCode agent config (`adapters/opencode/transform.js` swaps the block, maps frontmatter) |
+| `skills/*/SKILL.md` | OpenCode commands `/neo:<name>` (same names, same `!`cmd`` lines) |
+| `hooks/scripts/*.sh` — the neutral hook contract | How each harness invokes them |
+| `templates/**` | — |
+
+Authoring rules for contributors:
+
+- Agent and skill bodies describe behavior ("spawn trinity", "track todos"), never a harness tool name. Tool names go in the harness block.
+- A new hook reads JSON on stdin, exits 2 with a message on stderr to block, exits 0 otherwise, and resolves the project root the way the existing scripts do. Never read a harness-specific env var without a fallback.
+- Generated config is never edited by hand.
+
+## The neutral hook contract
+
+| Script | stdin fields | Exit / output |
+|---|---|---|
+| `brain-load.sh` | `source` (`startup` / `resume` / `clear` / `compact`) | stdout = context to inject; touches `.neo/.session` unless `compact` |
+| `jail.sh` | `agent_type`, `cwd`, `tool_input.file_path` | exit 2 + stderr = block |
+| `run-ledger.sh` | `tool_input.subagent_type`, `tool_input.description`, `tool_response` | writes `.neo/runs/` |
+| `checkpoint.sh` | `hook_event_name` (`PreCompact` / `Stop`), `last_assistant_message` | writes `.neo/CHECKPOINT.md` |
+| `stop-gate.sh` | `stop_hook_active` | exit 2 + stderr = "don't stop yet" |
+| `brain-sync.sh` | — | commits `.neo/brain` when dirty and safe |
+| `format.sh` | `tool_input.file_path`, `cwd` | formats opt-in; Claude Code only |
+
+All scripts accept `CLAUDE_PROJECT_DIR` as the root fallback after `git rev-parse --show-toplevel`. The field names are Claude Code's; they are kept as the contract's names on purpose.
+
+## Per-guarantee enforcement
+
+| Guarantee | Claude Code | OpenCode | Codex / Kiro / Cursor |
 |---|---|---|---|
-| Session agent takeover | `settings.json {"agent": "neo"}` | `opencode.json {"agent": "neo"}` (same mechanism) | TBD |
-| Spawn a specialist | `Agent` tool (`subagent_type`) | `task()` call with subagent type | TBD |
-| Track todos | `TodoWrite` tool | `todowrite` tool | TBD |
-| Ask the user a question | `AskUserQuestion` tool | Direct response (no dedicated tool) | TBD |
-| SessionStart hook | `hooks.json` `SessionStart` event | `opencode.json` hooks (same structure) | TBD |
-| PreToolUse hook | `hooks.json` `PreToolUse` + matcher | `opencode.json` hooks | TBD |
-| PreCompact hook | `hooks.json` `PreCompact` event | TBD | TBD |
-| Stop hook | `hooks.json` `Stop` event | TBD | TBD |
-| SessionEnd hook | `hooks.json` `SessionEnd` event | TBD | TBD |
-| Plugin namespace | `.claude-plugin/plugin.json` | TBD | TBD |
-| Agent file format | `agents/*.md` with YAML frontmatter | Same format (OpenCode reads the same files) | TBD |
-| Skill/command file | `skills/<name>/SKILL.md` | Same format | TBD |
+| Brain loaded at session start | `SessionStart` hook stdout | plugin injects `brain-load.sh` output into the system prompt (root sessions only) | TBD |
+| neo-shadow writes only `.neo/brain/` | `PreToolUse` hook, exit 2 | per-agent `permission.edit` glob + `bash: deny` (native), `jail.sh` behind it for symlink/hardlink checks | TBD |
+| Spawn depth 2 | leaf agents lack the `Agent` tool | OpenCode's own `subagent_depth` (default 1) + `permission.task: deny` on leaves | TBD |
+| Checkpoint before compaction | `PreCompact` hook | compaction hook; brain context also injected into the compaction | TBD |
+| Stop-gate | `Stop` hook blocks the turn | **advisory** — one-line nudge on the next turn; OpenCode has no blockable Stop | TBD |
+| Brain auto-commit | `SessionEnd` hook | on each root `session.idle` when the brain is dirty (idempotent) | TBD |
+| Run ledger | `PostToolUse` on `Agent`/`Task` | `tool.execute.after` on `task` | TBD |
+| Formatter | `format.sh`, opt-in | OpenCode's `formatter` config | TBD |
+| Workflows user-invoked only | `disable-model-invocation` (equip) | commands are never model-invoked | TBD |
 
-"TBD" means the harness either doesn't have an equivalent yet or the mapping hasn't been verified. Don't fill these in speculatively.
+"TBD" means no adapter exists yet. Don't fill it in speculatively.
 
----
+## What stays the same across harnesses
 
-## What a v2 Adapter Would Swap
+- The second brain contract ([brain-spec.md](brain-spec.md)).
+- The roster: neo, neo-shadow, trinity, smith — jobs, model tiers, tool restrictions.
+- The tiered pipeline, contract negotiation, and the six-section delegation contract.
+- The scripts' logic and their behavioral CI tests.
 
-A minimal port to a new harness requires changes in three places:
+## Scope
 
-**1. The harness-specific section in `agents/neo.md`**
-Replace the "Claude Code Specifics" block with the target harness's tool names and plugin mechanism. Everything above that block stays identical.
-
-**2. `hooks/hooks.json`**
-Hook event names and the plugin hook mechanism are harness-specific. The shell scripts themselves (`brain-load.sh`, `brain-sync.sh`, etc.) are plain bash and are reusable as-is if the target harness supports command hooks.
-
-**3. `.claude-plugin/`**
-The plugin manifest format is Claude Code specific. A new harness needs its own plugin registration mechanism.
-
-The brain files, agent prose, skill files, and templates are all harness-neutral and require no changes. One caveat: `disable-model-invocation` in `skills/equip/SKILL.md` is a Claude Code field; other harnesses fall back to the prose rule in `agents/neo.md`'s Hard Rules.
-
-**The list stays at three on purpose.** Claude Code lets a skill or subagent declare hooks in its own frontmatter, which would scatter enforcement across `agents/*.md` and `skills/*/SKILL.md` and turn three swap points into a dozen. That route is closed for this plugin anyway — plugin subagents ignore frontmatter `hooks` — so every hook stays declared in `hooks/hooks.json`. See [hooks-reference.md](hooks-reference.md#hook-scoping-why-every-hook-stays-in-hooksjson). An adapter author swaps one file, not a component tree.
-
----
-
-## What Stays the Same Across Harnesses
-
-- The second brain contract: nine files, their purposes, update cadences, and size rules. Documented in [brain-spec.md](brain-spec.md).
-- The agent roster: neo, neo-shadow, trinity, smith. Their jobs, model tiers, and tool restrictions are harness-neutral concepts.
-- The tiered pipeline: TRIVIAL / STANDARD / DEEP. The classification logic and escalation rules don't depend on any harness.
-- The delegation contract: six-section spawn prompt (TASK / EXPECTED OUTCOME / TOOLS / MUST DO / MUST NOT DO / CONTEXT). This is a prose discipline, not a tool call.
-- The brain file format: plain markdown with `[[wiki-links]]`. No harness dependency.
-- The shell scripts: bash with no harness-specific calls. Reusable if the target harness supports command hooks.
-
----
-
-## v1 Scope Statement
-
-v1 is Claude Code only. The harness-neutral authoring is an investment in future portability, not a promise to deliver adapters. Adapters are explicitly out of scope for v1.
-
-The non-goals from the design spec:
-
-- No multi-harness adapters in v1.
-- No MCP servers.
-- No vector DB or Graphiti dependency (graphify is detect-don't-depend; see [brain-spec.md](brain-spec.md)).
-- No experimental agent-type hooks (documented as a v2 neo-shadow upgrade path).
-
-If you're building an adapter, start with the concept map above, swap the three locations listed, and verify the hook events your target harness supports. The brain and agent prose will work without modification.
+OpenCode support targets OpenCode 1.x (verified on 1.19.1). OpenCode 2 is out of scope. No MCP servers, no vector DB or Graphiti dependency.
