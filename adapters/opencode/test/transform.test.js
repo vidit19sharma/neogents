@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseFrontmatter, swapHarnessBlock, transformAgent, HARNESS_BEGIN, HARNESS_END } from "../transform.js";
-import { readFileSync } from "node:fs";
+import { parseFrontmatter, swapHarnessBlock, transformAgent, transformSkill, buildConfig, HARNESS_BEGIN, HARNESS_END } from "../transform.js";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -59,4 +59,42 @@ test("transformAgent: trinity maps sonnet to the configured model id", () => {
   assert.equal(a.model, models.sonnet);
   assert.deepEqual(a.permission, { task: "deny" });
   assert.ok(!("tools" in a));
+});
+
+test("transformSkill: command targets neo, plugin root and tool names rewritten", () => {
+  const md = readFileSync(join(root, "skills/gc/SKILL.md"), "utf8");
+  const c = transformSkill("gc", md, { pluginRoot: "/pkg" });
+  assert.equal(c.agent, "neo");
+  assert.equal(c.description, parseFrontmatter(md).attrs.description);
+  assert.ok(c.template.includes('bash "/pkg/hooks/scripts/brain-gc.sh"'));
+  assert.ok(!c.template.includes("CLAUDE_PLUGIN_ROOT"));
+  assert.ok(c.template.includes("(task tool)"));
+  assert.ok(!c.template.includes("Agent tool"));
+  assert.ok(c.template.includes("!`"));
+});
+
+test("buildConfig: 4 agents, 11 commands, matches snapshot configuration", () => {
+  const cfg = buildConfig({
+    agentsDir: join(root, "agents"),
+    skillsDir: join(root, "skills"),
+    pluginRoot: "/pkg",
+    permissions,
+    models,
+  });
+  assert.deepEqual(Object.keys(cfg.agent).sort(), ["neo", "neo-shadow", "smith", "trinity"]);
+  assert.equal(Object.keys(cfg.command).length, 11);
+  for (const name of Object.keys(cfg.command)) assert.ok(name.startsWith("neo:"), name);
+  assert.ok("neo:init" in cfg.command && "neo:equip" in cfg.command);
+
+  const snapPath = join(root, "adapters/opencode/test/snapshot.json");
+  if (process.env.UPDATE_SNAPSHOT || !existsSync(snapPath)) {
+    writeFileSync(snapPath, JSON.stringify(cfg, null, 2) + "\n");
+  }
+  const snap = JSON.parse(readFileSync(snapPath, "utf8"));
+  // Compare runtime configuration, not natural-language prompt wording.
+  const configs = [cfg, snap].map((config) => ({
+    agent: Object.fromEntries(Object.entries(config.agent).map(([name, { prompt, description, ...settings }]) => [name, settings])),
+    command: Object.fromEntries(Object.entries(config.command).map(([name, { template, description, ...settings }]) => [name, settings])),
+  }));
+  assert.deepEqual(configs[0], configs[1], "config drifted from snapshot — run UPDATE_SNAPSHOT=1 node --test if intended");
 });

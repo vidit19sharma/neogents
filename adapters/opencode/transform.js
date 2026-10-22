@@ -46,3 +46,30 @@ export function transformAgent(name, md, { permissions, models }) {
   if (permission && Object.keys(permission).length) agent.permission = permission;
   return agent;
 }
+
+export function transformSkill(name, md, { pluginRoot }) {
+  const { attrs, body } = parseFrontmatter(md);
+  const template = body
+    .replaceAll("${CLAUDE_PLUGIN_ROOT}", pluginRoot)
+    .replace(/\bAgent tool\b/g, "task tool");
+  return { description: attrs.description ?? "", agent: "neo", template };
+}
+
+export function buildConfig({ agentsDir, skillsDir, pluginRoot, permissions, models }) {
+  const agent = {};
+  for (const f of readdirSync(agentsDir).filter((f) => f.endsWith(".md")).sort()) {
+    const name = f.slice(0, -3);
+    agent[name] = transformAgent(name, readFileSync(join(agentsDir, f), "utf8"), { permissions, models });
+  }
+  const command = {};
+  for (const d of readdirSync(skillsDir).sort()) {
+    let md;
+    try {
+      md = readFileSync(join(skillsDir, d, "SKILL.md"), "utf8");
+    } catch {
+      continue;
+    }
+    command[`neo:${d}`] = transformSkill(d, md, { pluginRoot });
+  }
+  return { agent, command };
+}
