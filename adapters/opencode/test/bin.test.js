@@ -365,6 +365,8 @@ test("smoke CI loads local agents without a model and records that scope", () =>
     'assert.equal(cfg.default_agent, "neo")',
     'JSON.stringify({ default_agent: "neo" })',
     "opencode agent list", "for agent in neo trinity smith neo-shadow; do",
+    'grep -Eq "^$agent \\\\(" "$tmp/agents.txt" || { echo "missing agent: $agent"; exit 1; }',
+    "grep -qi 'failed to load plugin'",
     "failed to load plugin", "SMOKE_OK",
   ]) assert.ok(smoke.includes(required), required);
   assert.ok(smoke.indexOf('node "$GITHUB_WORKSPACE/bin/neogents.js" setup') < smoke.indexOf('JSON.stringify({ default_agent: "neo" })'));
