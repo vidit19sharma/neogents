@@ -70,6 +70,13 @@ export function init({ cwd = process.cwd(), log = console.log } = {}) {
     log(".neo/.gitignore must be a regular file; refusing to initialize");
     return 1;
   }
+  for (const name of ["AGENTS.md", "CLAUDE.md"]) {
+    const entry = lstatSync(join(cwd, name), { throwIfNoEntry: false });
+    if (entry && !entry.isFile()) {
+      log(`${name} must be a regular file (found ${entry.isSymbolicLink() ? "symlink" : "non-file"}); refusing to initialize`);
+      return 1;
+    }
+  }
   if (existsSync(join(cwd, ".neo/brain"))) {
     log("Brain already initialized; use /neo:status.");
     return 0;

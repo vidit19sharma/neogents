@@ -271,6 +271,30 @@ test("init refuses a symlinked or non-file ignore path without writing", (t) => 
   }
 });
 
+for (const name of ["AGENTS.md", "CLAUDE.md"]) {
+  for (const kind of ["dangling symlink", "symlink", "directory"]) {
+    test(`init refuses ${name} as a ${kind} before scaffolding`, (t) => {
+      const { dir, options, lines } = fixture(t);
+      const cwd = join(dir, "project");
+      const outside = join(dir, "outside");
+      mkdirSync(cwd);
+      mkdirSync(outside);
+      const target = join(outside, "escaped.md");
+      if (kind === "symlink") writeFileSync(target, "user conventions\n");
+      if (kind === "directory") mkdirSync(join(cwd, name));
+      else symlinkSync(target, join(cwd, name));
+      assert.equal(init({ ...options, cwd }), 1);
+      assert.equal(existsSync(join(cwd, ".neo")), false);
+      assert.deepEqual(readdirSync(cwd), [name]);
+      if (kind === "symlink") assert.equal(readFileSync(target, "utf8"), "user conventions\n");
+      else assert.equal(existsSync(target), false);
+      assert.deepEqual(lines, [
+        `${name} must be a regular file (found ${kind === "directory" ? "non-file" : "symlink"}); refusing to initialize`,
+      ]);
+    });
+  }
+}
+
 test("init leaves existing instruction files alone and requests a missing import", (t) => {
   const { dir, options, lines } = fixture(t);
   const claude = "# Existing\nMention @AGENTS.md inline only.\n";
