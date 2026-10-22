@@ -4,7 +4,37 @@
   "description": "NEO: an orchestrator that runs the show and a second brain that never forgets. Claude Code plugin and OpenCode adapter.",
   "license": "MIT",
   "type": "module",
-  "private": true,
+  "main": "./adapters/opencode/plugin.js",
+  "files": [
+    "agents/",
+    "skills/",
+    "hooks/scripts/",
+    "templates/",
+    "adapters/opencode/",
+    "bin/"
+  ],
+  "bin": {
+    "neogents": "bin/neogents.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vidit19sharma/neogents.git"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "orchestrator",
+    "agents",
+    "subagents",
+    "memory",
+    "second-brain",
+    "context-engineering",
+    "workflow"
+  ],
   "scripts": {
     "test": "node --test adapters/opencode/test/"
   }
