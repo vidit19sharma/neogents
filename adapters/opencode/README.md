@@ -70,7 +70,7 @@ model-dependent checks and their limitations remain recorded in Live verificatio
 | OpenCode | Script | Note |
 |---|---|---|
 | first turn of a root session (`experimental.chat.system.transform`) | `brain-load.sh` | output rides the system prompt every turn |
-| `tool.execute.before` on `write`/`edit` by `neo-shadow` | `jail.sh` | default-deny for unlisted tools + `.neo/brain/**` edit glob, with `jail.sh` physical-path checks, and env files are denied to it (except `*.env.example`); exit 2 → thrown error; relative paths resolve against the launch directory |
+| `tool.execute.before` on `write`/`edit` by `neo-shadow` | `jail.sh` | default-deny for unlisted tools + `.neo/brain/**` edit glob, with `jail.sh` physical-path checks, and its `read` tool is denied `*.env`/`*.env.*` (except `*.env.example`); `grep` can still match their contents, as on Claude Code; exit 2 → thrown error; relative paths resolve against the launch directory |
 | `tool.execute.after` on `task` | `run-ledger.sh` | the `<task_result>` wrapper is stripped so the ledger sees the result text |
 | root `session.idle` | `checkpoint.sh` (Stop), `stop-gate.sh`, `brain-sync.sh` | |
 | `experimental.session.compacting` | `checkpoint.sh` (PreCompact), then `brain-load.sh` (`source=compact`) | root sessions only; reloads the brain, refreshes the cache, and injects it into the compaction context |
