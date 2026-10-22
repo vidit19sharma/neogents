@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync, chmodSync } from "node:fs";
+import { mkdtempSync, writeFileSync, chmodSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runScript } from "../hooks.js";
@@ -14,6 +14,18 @@ test("runScript feeds JSON on stdin, sets CLAUDE_PROJECT_DIR, returns status/std
   assert.equal(r.status, 2);
   assert.equal(r.stdout, `root=${dir} in={"a":1}\n`);
   assert.equal(r.stderr, "nope\n");
+});
+
+test("runScript bounds a slow script with the configured timeout", (t) => {
+  const dir = mkdtempSync(join(tmpdir(), "neo-hooks-slow-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  writeFileSync(join(dir, "slow.sh"), "#!/usr/bin/env bash\nexec sleep 5\n");
+  const start = performance.now();
+  const r = runScript(dir, "slow.sh", {}, dir, { timeout: 200 });
+  const elapsed = performance.now() - start;
+  assert.equal(typeof r.status, "number");
+  assert.notEqual(r.status, 0);
+  assert.ok(elapsed < 2_000, `script took ${elapsed}ms`);
 });
 
 import { createHooks } from "../hooks.js";
@@ -76,12 +88,16 @@ test("system.transform skips child sessions", async () => {
   assert.deepEqual(out.system, []);
 });
 
-test("chat.message records the agent per session", async () => {
-  const { run } = fakeRunner();
+test("resumed subagents skip system.transform and session.idle without a creation event", async () => {
+  const { run, calls } = fakeRunner({ "brain-load.sh": { stdout: "BRAIN\n" } });
   const hooks = createHooks({ run, client: {}, worktree: "/wt", config });
-  await hooks["chat.message"]({ sessionID: "s1", agent: "neo-shadow" }, {});
-  assert.equal(hooks._agentOf("s1"), "neo-shadow");
-  assert.equal(hooks._agentOf("unknown"), undefined);
+  await hooks["chat.message"]({ sessionID: "s1", agent: "trinity" }, {});
+  const out = { system: ["sys"] };
+  await hooks["experimental.chat.system.transform"]({ sessionID: "s1" }, out);
+  assert.deepEqual(calls, []);
+  assert.deepEqual(out.system, ["sys"]);
+  await hooks.event({ event: { type: "session.idle", properties: { sessionID: "s1" } } });
+  assert.deepEqual(calls, []);
 });
 
 test("tool.execute.before runs jail.sh for neo-shadow writes and throws on exit 2", async () => {
@@ -111,12 +127,25 @@ test("tool.execute.before allows when jail.sh exits 0 and skips other agents/too
   assert.equal(calls[0][0], "jail.sh");
 });
 
+test("tool.execute.before resolves paths against the launch directory", async () => {
+  const { run, calls } = fakeRunner();
+  const hooks = createHooks({ run, client: {}, worktree: "/wt", directory: "/wt/pkg", config });
+  await hooks["chat.message"]({ sessionID: "s1", agent: "neo-shadow" }, {});
+  for (const filePath of [".neo/brain/x.md", "/wt/.neo/brain/x.md"]) {
+    await hooks["tool.execute.before"]({ tool: "write", sessionID: "s1" }, { args: { filePath } });
+  }
+  assert.deepEqual(calls, ["/wt/pkg/.neo/brain/x.md", "/wt/.neo/brain/x.md"].map((file_path) => [
+    "jail.sh",
+    { agent_type: "neo-shadow", cwd: "/wt/pkg", hook_event_name: "PreToolUse", tool_name: "write", tool_input: { file_path } },
+  ]));
+});
+
 test("tool.execute.after logs task spawns to the run ledger", async () => {
   const { run, calls } = fakeRunner();
   const hooks = createHooks({ run, client: {}, worktree: "/wt", config });
   await hooks["tool.execute.after"](
     { tool: "task", sessionID: "s1", callID: "c1", args: { subagent_type: "trinity", description: "Add tests", prompt: "..." } },
-    { title: "t", output: "<task id=\"ses_x\" state=\"completed\"><task_result>VERDICT: APPROVE</task_result></task>", metadata: {} },
+    { title: "t", output: "<task id=\"ses_x\" state=\"completed\">\n<task_result>\nVERDICT: APPROVE\nlooks good\n</task_result>\n</task>", metadata: {} },
   );
   await hooks["tool.execute.after"]({ tool: "write", sessionID: "s1", args: {} }, { output: "" });
   assert.deepEqual(calls, [[
@@ -125,9 +154,16 @@ test("tool.execute.after logs task spawns to the run ledger", async () => {
       hook_event_name: "PostToolUse",
       tool_name: "Task",
       tool_input: { subagent_type: "trinity", description: "Add tests" },
-      tool_response: "<task id=\"ses_x\" state=\"completed\"><task_result>VERDICT: APPROVE</task_result></task>",
+      tool_response: "VERDICT: APPROVE\nlooks good",
     },
   ]]);
+});
+
+test("tool.execute.after passes unwrapped task text through unchanged", async () => {
+  const { run, calls } = fakeRunner();
+  const hooks = createHooks({ run, client: {}, worktree: "/wt", config });
+  await hooks["tool.execute.after"]({ tool: "task", args: {} }, { output: "plain text" });
+  assert.equal(calls[0][1].tool_response, "plain text");
 });
 
 function fakeClient(lastText) {
@@ -176,12 +212,26 @@ test("session.idle survives an SDK that cannot list messages", async () => {
   assert.deepEqual(calls[0], ["checkpoint.sh", { hook_event_name: "Stop", last_assistant_message: "" }]);
 });
 
-test("compacting writes a PreCompact checkpoint and re-injects the cached brain", async () => {
+test("compacting skips child sessions", async () => {
+  const { run, calls } = fakeRunner();
+  const hooks = createHooks({ run, client: fakeClient("last"), worktree: "/wt", config });
+  await hooks.event({ event: { type: "session.created", properties: { info: { id: "c", parentID: "r" } } } });
+  const out = { context: [] };
+  await hooks["experimental.session.compacting"]({ sessionID: "c" }, out);
+  assert.deepEqual(calls, []);
+  assert.deepEqual(out.context, []);
+});
+
+test("compacting writes a PreCompact checkpoint and refreshes the brain", async () => {
   const { run, calls } = fakeRunner({ "brain-load.sh": { stdout: "BRAIN\n" } });
   const hooks = createHooks({ run, client: fakeClient("last"), worktree: "/wt", config });
   await hooks["experimental.chat.system.transform"]({ sessionID: "r" }, { system: [] });
   const out = { context: [] };
   await hooks["experimental.session.compacting"]({ sessionID: "r" }, out);
-  assert.deepEqual(calls[1], ["checkpoint.sh", { hook_event_name: "PreCompact", last_assistant_message: "last" }]);
+  assert.deepEqual(calls, [
+    ["brain-load.sh", { source: "startup" }],
+    ["checkpoint.sh", { hook_event_name: "PreCompact", last_assistant_message: "last" }],
+    ["brain-load.sh", { source: "compact" }],
+  ]);
   assert.deepEqual(out.context, ["BRAIN"]);
 });
