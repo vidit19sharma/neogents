@@ -10,7 +10,9 @@
     "skills/",
     "hooks/scripts/",
     "templates/",
-    "adapters/opencode/",
+    "adapters/opencode/*.js",
+    "adapters/opencode/*.json",
+    "adapters/opencode/README.md",
     "bin/"
   ],
   "bin": {

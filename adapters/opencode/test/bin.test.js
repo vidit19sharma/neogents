@@ -17,7 +17,8 @@ test("package exposes the plugin and CLI with a public zero-dependency payload",
   assert.equal(pkg.main, "./adapters/opencode/plugin.js");
   assert.deepEqual(pkg.bin, { neogents: "bin/neogents.js" });
   assert.deepEqual(pkg.files, [
-    "agents/", "skills/", "hooks/scripts/", "templates/", "adapters/opencode/", "bin/",
+    "agents/", "skills/", "hooks/scripts/", "templates/",
+    "adapters/opencode/*.js", "adapters/opencode/*.json", "adapters/opencode/README.md", "bin/",
   ]);
   assert.deepEqual(pkg.repository, {
     type: "git", url: "git+https://github.com/vidit19sharma/neogents.git",

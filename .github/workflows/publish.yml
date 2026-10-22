@@ -1,5 +1,10 @@
 name: Publish
 
+# Configure trusted publishing once on npmjs.com for @vidit19sharma/neogents.
+# Repository: vidit19sharma/neogents; workflow: publish.yml.
+# A new scoped package may first need a logged-in maintainer's npm publish --access public
+# (or a pre-created trusted publisher) before this workflow can publish.
+# Trusted publishing requires npm >= 11.5.1, hence the npm upgrade below.
 on:
   push:
     tags: ['v*']
