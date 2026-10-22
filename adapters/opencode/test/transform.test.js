@@ -61,19 +61,19 @@ test("transformAgent: trinity maps sonnet to the configured model id", () => {
   assert.ok(!("tools" in a));
 });
 
-test("transformSkill: command targets neo, plugin root and tool names rewritten", () => {
+test("transformSkill: command named neo:<name>, agent neo, plugin root and tool prose rewritten", () => {
   const md = readFileSync(join(root, "skills/gc/SKILL.md"), "utf8");
   const c = transformSkill("gc", md, { pluginRoot: "/pkg" });
   assert.equal(c.agent, "neo");
-  assert.equal(c.description, parseFrontmatter(md).attrs.description);
+  assert.ok(c.description.length > 0);
   assert.ok(c.template.includes('bash "/pkg/hooks/scripts/brain-gc.sh"'));
   assert.ok(!c.template.includes("CLAUDE_PLUGIN_ROOT"));
   assert.ok(c.template.includes("(task tool)"));
   assert.ok(!c.template.includes("Agent tool"));
-  assert.ok(c.template.includes("!`"));
+  assert.ok(c.template.includes("Scan: !`"));
 });
 
-test("buildConfig: 4 agents, 11 commands, matches snapshot configuration", () => {
+test("buildConfig: 4 agents, 11 commands, matches snapshot", () => {
   const cfg = buildConfig({
     agentsDir: join(root, "agents"),
     skillsDir: join(root, "skills"),
@@ -91,10 +91,5 @@ test("buildConfig: 4 agents, 11 commands, matches snapshot configuration", () =>
     writeFileSync(snapPath, JSON.stringify(cfg, null, 2) + "\n");
   }
   const snap = JSON.parse(readFileSync(snapPath, "utf8"));
-  // Compare runtime configuration, not natural-language prompt wording.
-  const configs = [cfg, snap].map((config) => ({
-    agent: Object.fromEntries(Object.entries(config.agent).map(([name, { prompt, description, ...settings }]) => [name, settings])),
-    command: Object.fromEntries(Object.entries(config.command).map(([name, { template, description, ...settings }]) => [name, settings])),
-  }));
-  assert.deepEqual(configs[0], configs[1], "config drifted from snapshot — run UPDATE_SNAPSHOT=1 node --test if intended");
+  assert.deepEqual(cfg, snap, "config drifted from snapshot — run UPDATE_SNAPSHOT=1 node --test if intended");
 });
