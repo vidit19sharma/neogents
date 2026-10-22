@@ -5,6 +5,7 @@ name: Publish
 # A new scoped package may first need a logged-in maintainer's npm publish --access public
 # (or a pre-created trusted publisher) before this workflow can publish.
 # Trusted publishing requires npm >= 11.5.1, hence the npm upgrade below.
+# Tag only commits whose CI run is green; this publish job runs the adapter tests only.
 on:
   push:
     tags: ['v*']

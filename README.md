@@ -186,8 +186,9 @@ Plans live in `.neo/plans/YYYY-MM-DD-<slug>.md`. Every subagent spawn is auto-lo
 ## Uninstall / Opt-out
 
 - **Disable the plugin** to stop NEO from taking over the main thread.
+- **OpenCode:** when removing the `plugin` entry, also remove `default_agent` if it is `"neo"` from `~/.config/opencode/opencode.json` (or the `XDG_CONFIG_HOME` path above); otherwise runs fail with `default agent "neo" not found`. If the plugin fails to install or load, fix it (network / reinstall) or remove `default_agent` to recover.
 - **Remove `.neo/`** from your project to delete the brain entirely.
-- **Create `.neo/no-auto-commit`** to stop the `SessionEnd` hook from auto-committing brain changes.
+- **Create `.neo/no-auto-commit`** to stop the `SessionEnd` hook (or the adapter's idle-time sync on OpenCode) from auto-committing brain changes.
 - The brain files are plain markdown. They're yours; nothing is locked in.
 
 ---
@@ -199,6 +200,9 @@ neo/
 ├── .claude-plugin/
 │   ├── plugin.json          # name "neo" -> /neo:* namespace
 │   └── marketplace.json
+├── adapters/opencode/       # OpenCode plugin, config transform, and tests
+├── bin/                     # setup and init CLI
+├── package.json             # npm package and plugin entry
 ├── agents/                  # 4 agent definitions
 │   ├── neo.md
 │   ├── neo-shadow.md

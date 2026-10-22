@@ -80,6 +80,8 @@ model-dependent checks and their limitations remain recorded in Live verificatio
 - **Stop-gate is advisory.** OpenCode cannot block a turn from ending. If the gate would block, its message is
   appended once to the next turn's system prompt as `[neo stop-gate] …`.
 - **Auto-commit runs on every root idle** where the brain is dirty (idempotent), not once at session end.
+- `.neo/no-auto-commit` is honoured here too: create it to disable idle-time brain sync commits.
+- The brain also rides OpenCode's first-message title request in the same root session, a one-time ~16K-token cost on the title model's provider.
 - `format.sh` is not used; configure OpenCode's `formatter` instead.
 
 ## Gotchas
@@ -87,7 +89,7 @@ model-dependent checks and their limitations remain recorded in Live verificatio
 - `opencode run "/neo:status"` does **not** run the command — the model just sees the text. Use
   `opencode run --command neo:status`.
 - By default, non-interactive `opencode run` auto-rejects permission *asks*; use explicit `allow`/`deny` rules in test configs.
-- If plugin initialization throws (unknown model alias in `models.json`, missing harness markers in `agents/neo.md`), OpenCode logs `failed to load plugin` and skips NEO silently — check the OpenCode log when `/neo:*` commands are missing.
+- If the plugin fails to install or load with setup's global `default_agent: "neo"`, OpenCode fails with `default agent "neo" not found` on every run/chat in every project (the TUI shows `Unexpected server error`). Fix the plugin (network / reinstall), or remove `default_agent` from `~/.config/opencode/opencode.json` (or the `XDG_CONFIG_HOME` path above) to recover.
 - The permission key for the shell tool is `bash` in 1.19.x (docs say `shell`).
 - Requires `bash` and `jq` on PATH, like the Claude Code plugin.
 
