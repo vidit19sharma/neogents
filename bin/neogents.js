@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -19,7 +19,7 @@ export function mergeSetup(input) {
     throw new TypeError("OpenCode plugin must be an array of strings.");
   }
   const cfg = { ...input };
-  cfg.plugin = (input.plugin ?? []).map((p) => p.startsWith(packageName) ? packageName : p);
+  cfg.plugin = (input.plugin ?? []).map((p) => p === packageName || p.startsWith(`${packageName}@`) ? packageName : p);
   if (!cfg.plugin.includes(packageName)) cfg.plugin.push(packageName);
   if (cfg.default_agent == null) cfg.default_agent = "neo";
   return { cfg, changed: JSON.stringify(cfg) !== JSON.stringify(input) };
@@ -39,7 +39,11 @@ export function setup({ env = process.env, home = homedir(), log = console.log }
   const { cfg, changed } = mergeSetup(input);
   if (changed) {
     mkdirSync(folder, { recursive: true });
-    writeFileSync(file, JSON.stringify(cfg, null, 2) + "\n");
+    const tmp = `${file}.tmp.${process.pid}`;
+    try {
+      writeFileSync(tmp, JSON.stringify(cfg, null, 2) + "\n");
+      renameSync(tmp, file);
+    } catch (e) { rmSync(tmp, { force: true }); throw e; }
     log(`Configured ${file}`);
   } else {
     log(`OpenCode already configured: ${file}`);
@@ -54,27 +58,32 @@ export function init({ cwd = process.cwd(), log = console.log } = {}) {
     log("Brain already initialized; use /neo:status.");
     return 0;
   }
-  mkdirSync(join(cwd, ".neo/brain"), { recursive: true });
-  mkdirSync(join(cwd, ".neo/plans"), { recursive: true });
-  log("Created .neo/plans/");
-  for (const name of readdirSync(join(templates, "brain")).filter((name) => name.endsWith(".md")).sort()) {
-    copyFileSync(join(templates, "brain", name), join(cwd, ".neo/brain", name));
-    log(`Created .neo/brain/${name}`);
-  }
-  writeFileSync(join(cwd, ".neo/.gitignore"), ".session\n");
-  log("Created .neo/.gitignore");
-  for (const name of ["AGENTS.md", "CLAUDE.md"]) {
-    if (!existsSync(join(cwd, name))) {
-      copyFileSync(join(templates, name), join(cwd, name));
-      log(`Created ${name}`);
+  try {
+    mkdirSync(join(cwd, ".neo/brain"), { recursive: true });
+    mkdirSync(join(cwd, ".neo/plans"), { recursive: true });
+    log("Created .neo/plans/");
+    for (const name of readdirSync(join(templates, "brain")).filter((name) => name.endsWith(".md")).sort()) {
+      copyFileSync(join(templates, "brain", name), join(cwd, ".neo/brain", name));
+      log(`Created .neo/brain/${name}`);
     }
+    writeFileSync(join(cwd, ".neo/.gitignore"), ".session\n");
+    log("Created .neo/.gitignore");
+    for (const name of ["AGENTS.md", "CLAUDE.md"]) {
+      if (!existsSync(join(cwd, name))) {
+        copyFileSync(join(templates, name), join(cwd, name));
+        log(`Created ${name}`);
+      }
+    }
+    if (!/^@AGENTS\.md\r?$/m.test(readFileSync(join(cwd, "CLAUDE.md"), "utf8"))) {
+      log("Add @AGENTS.md on its own line at the top of CLAUDE.md so Claude Code reads AGENTS.md.");
+    }
+    log("BRIEF.md/ARCHITECTURE.md are template placeholders to fill by hand or via /neo:init's interview.");
+    log("Brain initialized. It loads automatically next session; save anytime with /neo:save.");
+    return 0;
+  } catch (e) {
+    rmSync(join(cwd, ".neo/brain"), { recursive: true, force: true });
+    throw e;
   }
-  if (!/^@AGENTS\.md\r?$/m.test(readFileSync(join(cwd, "CLAUDE.md"), "utf8"))) {
-    log("Add @AGENTS.md on its own line at the top of CLAUDE.md so Claude Code reads AGENTS.md.");
-  }
-  log("BRIEF.md/ARCHITECTURE.md are template placeholders to fill by hand or via /neo:init's interview.");
-  log("Brain initialized. It loads automatically next session; save anytime with /neo:save.");
-  return 0;
 }
 
 export function main(args = process.argv.slice(2), options = {}) {
@@ -96,7 +105,6 @@ export function main(args = process.argv.slice(2), options = {}) {
 
 // npm/npx launch bins through a symlink in node_modules/.bin: argv[1] is the
 // symlink, import.meta.url is the real file. Compare canonical paths.
-const invoked = process.argv[1] && existsSync(process.argv[1]) ? realpathSync(process.argv[1]) : "";
-if (invoked === realpathSync(fileURLToPath(import.meta.url))) {
-  process.exitCode = main();
-}
+let invoked = "";
+try { invoked = realpathSync(process.argv[1]); } catch { /* not a file: imported, or run via -e */ }
+if (invoked === realpathSync(fileURLToPath(import.meta.url))) process.exitCode = main();

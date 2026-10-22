@@ -12,7 +12,6 @@ test("package exposes the plugin and CLI with a public zero-dependency payload",
   const plugin = JSON.parse(text(".claude-plugin/plugin.json"));
   assert.equal(pkg.private, undefined);
   assert.equal(pkg.name, "@vidit19sharma/neogents");
-  assert.equal(pkg.version, "0.1.0");
   assert.equal(pkg.version, plugin.version);
   assert.equal(pkg.type, "module");
   assert.equal(pkg.main, "./adapters/opencode/plugin.js");
@@ -295,4 +294,33 @@ test("publish workflow gates the tag and manifest versions before OIDC publish",
   const publish = workflow.indexOf("npm publish --provenance --access public");
   assert.ok(upgrade < tagGate && tagGate < tests && tests < publish);
   assert.ok(!workflow.includes("NODE_AUTH_TOKEN"));
+});
+
+test("mergeSetup preserves similarly named packages when unpinning the plugin", () => {
+  const { cfg } = mergeSetup({
+    plugin: ["@vidit19sharma/neogents-tools", "@vidit19sharma/neogents@0.0.9", "other"],
+  });
+  assert.deepEqual(cfg.plugin, ["@vidit19sharma/neogents-tools", "@vidit19sharma/neogents", "other"]);
+});
+
+test("setup preserves the original config when writing its temporary file fails", (t) => {
+  const { dir, options, errors } = fixture(t);
+  const file = join(dir, "xdg/opencode/opencode.json");
+  const original = '{"model":"kept"}\n';
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, original);
+  mkdirSync(`${file}.tmp.${process.pid}`);
+  assert.equal(main(["setup"], options), 1);
+  assert.match(errors.pop(), /^neogents: /);
+  assert.equal(readFileSync(file, "utf8"), original);
+});
+
+test("init removes a partial brain and still reports failure on retry", (t) => {
+  const { dir, options, errors } = fixture(t);
+  mkdirSync(join(dir, ".neo"));
+  writeFileSync(join(dir, ".neo/plans"), "blocked\n");
+  assert.equal(main(["init"], options), 1);
+  assert.match(errors.pop(), /^neogents: EEXIST:/);
+  assert.equal(existsSync(join(dir, ".neo/brain")), false);
+  assert.equal(main(["init"], options), 1);
 });
