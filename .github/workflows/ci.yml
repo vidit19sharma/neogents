@@ -736,7 +736,7 @@ jobs:
       - name: Syntax-check adapter JavaScript
         run: |
           set -e
-          for f in adapters/opencode/*.js; do
+          for f in adapters/opencode/*.js bin/neogents.js; do
             echo "node --check $f"
             node --check "$f"
           done

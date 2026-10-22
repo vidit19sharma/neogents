@@ -268,3 +268,12 @@ test("execution through an npm-style node_modules/.bin symlink still runs main",
   assert.equal(configured.status, 0, configured.stderr);
   assert.equal(JSON.parse(readFileSync(join(dir, "xdg/opencode/opencode.json"), "utf8")).default_agent, "neo");
 });
+
+test("adapter CI syntax-checks the bin and retains tests and version sync", () => {
+  const ci = text(".github/workflows/ci.yml");
+  const adapter = ci.split("\n  adapter:\n")[1].split(/\n  [a-z][a-z-]*:\n/)[0];
+  assert.ok(adapter.includes("for f in adapters/opencode/*.js bin/neogents.js; do"));
+  assert.ok(adapter.includes("run: node --test adapters/opencode/test/"));
+  assert.ok(adapter.includes("name: package.json version matches plugin.json"));
+  assert.ok(adapter.includes("require('./.claude-plugin/plugin.json').version"));
+});
