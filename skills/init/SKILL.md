@@ -32,7 +32,7 @@ Current state: !`ls -d .neo 2>/dev/null || echo "no .neo directory"` · AGENTS.m
 5. **Write**:
    - Fill `.neo/brain/BRIEF.md` from the interview (replace all placeholder comments).
    - If the codebase is non-empty, do a quick exploration pass to fill `.neo/brain/ARCHITECTURE.md` stack + layout sections. Leave patterns/gotchas to accumulate naturally.
-   - If `AGENTS.md` is absent, copy `${CLAUDE_PLUGIN_ROOT}/templates/AGENTS.md` and fill the command placeholders. If present, leave it alone — it is the project's canonical instruction file, read by every harness.
+   - If `AGENTS.md` is absent, copy `${CLAUDE_PLUGIN_ROOT}/templates/AGENTS.md` and fill the command placeholders. If `CLAUDE.md` already exists without an `@AGENTS.md` line, tell the user to add that line at the top so Claude Code reads the new file. If present, leave it alone — it is the project's canonical instruction file, read by every harness.
    - If `CLAUDE.md` is absent, copy `${CLAUDE_PLUGIN_ROOT}/templates/CLAUDE.md` as-is (it imports AGENTS.md). If present, leave it alone.
 
 6. **Report**: list created files, then: "Brain initialized. It loads automatically next session; save anytime with /neo:save."

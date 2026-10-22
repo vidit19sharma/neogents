@@ -129,7 +129,7 @@ To change the `PROGRESS.md` tail, edit the `tail -n 20` line in `brain-load.sh`.
 
 ## Project-Level AGENTS.md and CLAUDE.md
 
-`/neo:init` writes a starter `AGENTS.md` at the project root if one doesn't exist. It's the canonical instruction file every harness reads, a short file (target: under 100 lines) with three sections:
+`/neo:init` writes a starter `AGENTS.md` at the project root if one doesn't exist. It's the canonical instruction file every harness reads. Keep it short (target: under 100 lines) with three sections:
 
 - **Memory** — points to `.neo/brain/` and explains how to save.
 - **Commands** — build, test, lint commands. Filled in during the init interview.
@@ -139,7 +139,7 @@ It also writes a `CLAUDE.md` (if absent) that imports `AGENTS.md` with an `@AGEN
 
 **AGENTS.md vs the brain:** AGENTS.md holds rules that must be active on every single tool call — the kind of thing where forgetting it once causes a mistake. Long-term project knowledge (architecture, decisions, history) lives in `.neo/brain/`, not here. If AGENTS.md grows past ~100 lines, it starts causing rule-skipping. Prune test: "would removing this line cause a mistake?" If no, remove it.
 
-**NEO reads AGENTS.md** at session start (Claude Code loads CLAUDE.md automatically, which imports it). The brain files load on top of it via the `brain-load.sh` hook. There's no conflict: AGENTS.md is for rules, the brain is for knowledge.
+**NEO reads AGENTS.md** at session start (Claude Code auto-loads CLAUDE.md, which imports it). The brain files load on top of it via the `brain-load.sh` hook. There's no conflict: AGENTS.md is for rules, the brain is for knowledge.
 
 **To add project rules**, edit AGENTS.md directly or ask NEO to add them. For rules that came from a mistake, ask neo-shadow to record the lesson in `.neo/brain/LESSONS.md` as well — LESSONS.md loads every session and is the right home for "never again" rules.
 

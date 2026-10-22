@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Second docs drift sweep: fixed the "project-local formatters" overclaim (only prettier is `node_modules/.bin`-resolved; ruff/black/gofmt/rustfmt are `PATH`-resolved, all config-gated) across `SECURITY.md`, `CONTRIBUTING.md`, `docs/customization.md`, `docs/hooks-reference.md`, and `docs/workflow.md`; corrected `neo-shadow.md`'s own jail claim to `.neo/brain/`; synced `brain-spec.md`'s Git Sync section with `brain-sync.sh`'s detached-HEAD and revert/bisect guards; added `WORKFLOWS.md` to the on-demand file lists in `README.md` and `docs/hooks-reference.md`; separated `FRICTION.md` from the three auto-pointer files in `brain-spec.md`; fixed the run-ledger report filename's missing `-$$` suffix; and added a smith checklist line for verifying the diff against a plan's negotiated contract.
 - `agents/neo.md`: the recon sentence no longer names Claude Code tools; the Claude-specific block is wrapped in `<!-- harness:begin -->`/`<!-- harness:end -->` markers so adapters can swap it mechanically.
 - `docs/portability.md` rewritten as a per-guarantee enforcement table and the neutral hook contract, replacing the "swap three places" claim.
+- Upgrading an existing project: move your conventions from `CLAUDE.md` into a new `AGENTS.md` and replace them in `CLAUDE.md` with a single `@AGENTS.md` line. Until you do, agents still find project commands in `CLAUDE.md`.
 
 ### Added
 

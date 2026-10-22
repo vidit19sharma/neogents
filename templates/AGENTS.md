@@ -1,7 +1,7 @@
 # Project conventions
 
 <!-- Starter AGENTS.md written by /neo:init. Read by OpenCode, Codex, and Cursor directly, and by
-     Claude Code through the @AGENTS.md line in CLAUDE.md. Keep under ~100 lines — bloat causes
+     Claude Code through the `@AGENTS.md` line in CLAUDE.md. Keep under ~100 lines — bloat causes
      rule-skipping. Prune test: "would removing this line cause a mistake?" If no, remove it.
      Long-term project knowledge lives in .neo/brain/, not here. -->
 

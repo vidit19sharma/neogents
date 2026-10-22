@@ -13,7 +13,7 @@ See also: [brain-spec.md](brain-spec.md) for the second brain contract, [hooks-r
 
 Everything NEO writes into a project is harness-neutral: `.neo/**` (brain, plans, runs, checkpoint,
 session marker), `.claude/skills/` (read natively by Claude Code and OpenCode), `AGENTS.md` (the
-canonical instruction file), and a one-line `CLAUDE.md` that imports it. Adapters install under the
+canonical instruction file), and a `CLAUDE.md` that imports it (plus Claude-only compaction notes). Adapters install under the
 user's home, never in the repo. Switching harness on a project means opening it in the other tool.
 
 ## Source of truth and derivation
@@ -21,7 +21,7 @@ user's home, never in the repo. Switching harness on a project means opening it 
 | Authored once | Derived per harness |
 |---|---|
 | `agents/*.md` — harness-neutral body; tool names only inside the `<!-- harness:begin -->` … `<!-- harness:end -->` block at the end of `agents/neo.md` | OpenCode agent config (`adapters/opencode/transform.js` swaps the block, maps frontmatter) |
-| `skills/*/SKILL.md` | OpenCode commands `/neo:<name>` (same names, same `!`cmd`` lines) |
+| `skills/*/SKILL.md` | OpenCode commands `/neo:<name>` (same names, same shell status lines) |
 | `hooks/scripts/*.sh` — the neutral hook contract | How each harness invokes them |
 | `templates/**` | — |
 
@@ -44,6 +44,8 @@ Authoring rules for contributors:
 | `format.sh` | `tool_input.file_path`, `cwd` | formats opt-in; Claude Code only |
 
 All scripts accept `CLAUDE_PROJECT_DIR` as the root fallback after `git rev-parse --show-toplevel`. The field names are Claude Code's; they are kept as the contract's names on purpose.
+
+`brain-gc.sh` is the eighth script but not a hook: `/neo:gc` and `/neo:status` run it on demand.
 
 ## Per-guarantee enforcement
 
