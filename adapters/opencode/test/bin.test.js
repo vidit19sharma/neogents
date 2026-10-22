@@ -124,6 +124,22 @@ test("setup uses the home fallback and notes an existing default choice", (t) =>
   assert.ok(lines.includes('Keeping your default_agent: "build".'));
 });
 
+for (const xdg of ["", "relative/dir"]) {
+  test(`setup ignores a non-absolute XDG_CONFIG_HOME (${JSON.stringify(xdg)})`, (t) => {
+    const { dir } = fixture(t);
+    const home = join(dir, "home");
+    const result = spawnSync(process.execPath, ["--input-type=module", "-e", `
+      import { setup } from ${JSON.stringify(new URL("../../../bin/neogents.js", import.meta.url).href)};
+      process.exitCode = setup({ env: { XDG_CONFIG_HOME: ${JSON.stringify(xdg)} }, home: ${JSON.stringify(home)}, log() {} });
+    `], { cwd: dir, encoding: "utf8" });
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(readdirSync(dir), ["home"]);
+    assert.deepEqual(JSON.parse(readFileSync(join(home, ".config/opencode/opencode.json"), "utf8")), {
+      plugin: [packageName], default_agent: "neo",
+    });
+  });
+}
+
 test("setup with only JSONC prints the two additions and writes nothing", (t) => {
   const { dir, options, lines } = fixture(t);
   const folder = join(dir, "xdg/opencode");
@@ -185,6 +201,74 @@ test("init's brain guard makes a second run a complete no-op", (t) => {
   assert.equal(existsSync(join(dir, ".neo/.gitignore")), false);
   assert.equal(existsSync(join(dir, ".neo/plans")), false);
   assert.deepEqual(lines, ["Brain already initialized; use /neo:status."]);
+});
+
+test("init refuses symlinked or non-directory scaffold paths before writing", (t) => {
+  for (const path of [".neo", ".neo/brain"]) {
+    for (const kind of ["symlink", "dangling symlink", "file"]) {
+      const { dir, options, lines } = fixture(t);
+      const outside = join(dir, "outside");
+      const cwd = join(dir, "project");
+      mkdirSync(cwd);
+      mkdirSync(outside);
+      if (path.includes("/")) mkdirSync(join(cwd, ".neo"));
+      if (kind === "file") writeFileSync(join(cwd, path), "kept\n");
+      else symlinkSync(kind === "symlink" ? outside : join(outside, "missing"), join(cwd, path));
+      assert.equal(init({ ...options, cwd }), 1, `${path}: ${kind}`);
+      assert.deepEqual(readdirSync(outside), []);
+      assert.deepEqual(readdirSync(cwd), [".neo"]);
+      if (path.includes("/")) assert.deepEqual(readdirSync(join(cwd, ".neo")), ["brain"]);
+      if (kind === "file") assert.equal(readFileSync(join(cwd, path), "utf8"), "kept\n");
+      assert.equal(lines.length, 1);
+      assert.match(lines[0], /must be a real directory.*refusing to initialize/);
+    }
+  }
+});
+
+test("init appends the session ignore rule without losing existing rules", (t) => {
+  for (const original of ["private/\n", "private/", ""]) {
+    const { dir, options, lines } = fixture(t);
+    mkdirSync(join(dir, ".neo"));
+    writeFileSync(join(dir, ".neo/.gitignore"), original);
+    assert.equal(init(options), 0);
+    assert.equal(readFileSync(join(dir, ".neo/.gitignore"), "utf8"), original + (original && !original.endsWith("\n") ? "\n" : "") + ".session\n");
+    assert.ok(lines.includes("Updated .neo/.gitignore"));
+    assert.ok(!lines.includes("Created .neo/.gitignore"));
+  }
+});
+
+test("init leaves an existing session ignore rule byte-identical", (t) => {
+  for (const original of ["private/\n.session\n", ".session", "private/\r\n.session\r\n"]) {
+    const { dir, options, lines } = fixture(t);
+    mkdirSync(join(dir, ".neo"));
+    const file = join(dir, ".neo/.gitignore");
+    writeFileSync(file, original);
+    utimesSync(file, new Date(1_000_000), new Date(1_000_000));
+    const before = statSync(file).mtimeMs;
+    assert.equal(init(options), 0);
+    assert.equal(readFileSync(file, "utf8"), original);
+    assert.equal(statSync(file).mtimeMs, before);
+    assert.ok(!lines.some((line) => /^(Created|Updated) \.neo\/\.gitignore$/.test(line)));
+  }
+});
+
+test("init refuses a symlinked or non-file ignore path without writing", (t) => {
+  for (const kind of ["symlink", "dangling symlink", "directory"]) {
+    const { dir, options, lines } = fixture(t);
+    mkdirSync(join(dir, ".neo"));
+    const target = join(dir, "private-ignore");
+    const file = join(dir, ".neo/.gitignore");
+    writeFileSync(target, "private/\n");
+    if (kind === "directory") mkdirSync(file);
+    else symlinkSync(kind === "symlink" ? target : join(dir, "missing"), file);
+    assert.equal(init(options), 1, kind);
+    assert.equal(readFileSync(target, "utf8"), "private/\n");
+    assert.equal(existsSync(join(dir, "missing")), false);
+    assert.deepEqual(readdirSync(join(dir, ".neo")), [".gitignore"]);
+    assert.deepEqual(readdirSync(dir).sort(), [".neo", "private-ignore"]);
+    assert.equal(lines.length, 1);
+    assert.match(lines[0], /\.neo\/\.gitignore must be a regular file.*refusing to initialize/);
+  }
 });
 
 test("init leaves existing instruction files alone and requests a missing import", (t) => {

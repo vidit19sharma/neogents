@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { appendFileSync, copyFileSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
@@ -26,7 +26,9 @@ export function mergeSetup(input) {
 }
 
 export function setup({ env = process.env, home = homedir(), log = console.log } = {}) {
-  const folder = join(env.XDG_CONFIG_HOME ?? join(home, ".config"), "opencode");
+  const xdg = env.XDG_CONFIG_HOME;
+  const base = xdg && isAbsolute(xdg) ? xdg : join(home, ".config");
+  const folder = join(base, "opencode");
   const file = join(folder, "opencode.json");
   if (!existsSync(file) && existsSync(join(folder, "opencode.jsonc"))) {
     log("Add these entries to your existing opencode.jsonc (merge with existing entries):");
@@ -55,6 +57,19 @@ export function setup({ env = process.env, home = homedir(), log = console.log }
 }
 
 export function init({ cwd = process.cwd(), log = console.log } = {}) {
+  for (const path of [".neo", ".neo/brain"]) {
+    const entry = lstatSync(join(cwd, path), { throwIfNoEntry: false });
+    if (entry && !entry.isDirectory()) {
+      log(`${path} must be a real directory (found ${entry.isSymbolicLink() ? "symlink" : "non-directory"}); refusing to initialize`);
+      return 1;
+    }
+  }
+  const ignore = join(cwd, ".neo/.gitignore");
+  const ignoreEntry = lstatSync(ignore, { throwIfNoEntry: false });
+  if (ignoreEntry && !ignoreEntry.isFile()) {
+    log(".neo/.gitignore must be a regular file; refusing to initialize");
+    return 1;
+  }
   if (existsSync(join(cwd, ".neo/brain"))) {
     log("Brain already initialized; use /neo:status.");
     return 0;
@@ -67,8 +82,16 @@ export function init({ cwd = process.cwd(), log = console.log } = {}) {
       copyFileSync(join(templates, "brain", name), join(cwd, ".neo/brain", name));
       log(`Created .neo/brain/${name}`);
     }
-    writeFileSync(join(cwd, ".neo/.gitignore"), ".session\n");
-    log("Created .neo/.gitignore");
+    if (ignoreEntry) {
+      const content = readFileSync(ignore, "utf8");
+      if (!content.split(/\r?\n/).includes(".session")) {
+        appendFileSync(ignore, `${content && !content.endsWith("\n") ? "\n" : ""}.session\n`);
+        log("Updated .neo/.gitignore");
+      }
+    } else {
+      writeFileSync(ignore, ".session\n");
+      log("Created .neo/.gitignore");
+    }
     for (const name of ["AGENTS.md", "CLAUDE.md"]) {
       if (!existsSync(join(cwd, name))) {
         copyFileSync(join(templates, name), join(cwd, name));
