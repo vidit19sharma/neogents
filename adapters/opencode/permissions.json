@@ -3,6 +3,11 @@
   "trinity": { "task": "deny" },
   "smith": { "task": "deny", "edit": "deny" },
   "neo-shadow": {
+    "*": "deny",
+    "read": "allow",
+    "grep": "allow",
+    "glob": "allow",
+    "list": "allow",
     "task": "deny",
     "bash": "deny",
     "edit": { "*": "deny", ".neo/brain/**": "allow" }

@@ -108,6 +108,22 @@ test("transformSkill: WebFetch/WebSearch rewritten to OpenCode tool names", () =
   assert.ok(c.template.includes("websearch"));
 });
 
+test("buildConfig: only neo-shadow defaults to denying unlisted tools", () => {
+  const cfg = buildConfig({
+    agentsDir: join(root, "agents"),
+    skillsDir: join(root, "skills"),
+    pluginRoot: "/pkg",
+    permissions,
+    models,
+  });
+  assert.equal(cfg.agent["neo-shadow"].permission["*"], "deny");
+  assert.equal(cfg.agent["neo-shadow"].permission.edit[".neo/brain/**"], "allow");
+  for (const tool of ["read", "grep", "glob", "list"]) {
+    assert.equal(cfg.agent["neo-shadow"].permission[tool], "allow");
+  }
+  assert.equal(cfg.agent.trinity.permission["*"], undefined);
+});
+
 test("buildConfig: 4 agents, 11 commands, matches snapshot", () => {
   const cfg = buildConfig({
     agentsDir: join(root, "agents"),
