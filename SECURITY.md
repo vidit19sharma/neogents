@@ -39,7 +39,7 @@ It merges `plugin` and sets `default_agent` only if unset, writes atomically, an
 `init` writes only inside the project (`.neo/`, plus missing instruction files) and refuses symlinked `.neo`, `.neo/brain`, `.neo/.gitignore`, `AGENTS.md`, and `CLAUDE.md` paths.
 It never writes instruction files when only `CLAUDE.md` exists; it prints a migration hint instead.
 The zero-dependency OpenCode plugin runs in-process in OpenCode and shells out to the same hook scripts, with the same trust model as the Claude Code hooks.
-Its neo-shadow jail uses OpenCode permission default-deny for unlisted tools plus the `.neo/brain/**` edit glob and `jail.sh` physical-path checks; see the [adapter guide](adapters/opencode/README.md) for enforcement details and limitations.
+Its neo-shadow jail uses OpenCode permission default-deny for unlisted tools plus the `.neo/brain/**` edit glob and `jail.sh` physical-path checks, and env files are denied to it (except `*.env.example`); see the [adapter guide](adapters/opencode/README.md) for enforcement details and limitations.
 Publishing is tag-triggered with npm provenance ([publish.yml](.github/workflows/publish.yml)).
 
 ### What the hook scripts deliberately do

@@ -118,7 +118,9 @@ test("buildConfig: neo-shadow denies unlisted tools", () => {
   });
   assert.equal(cfg.agent["neo-shadow"].permission["*"], "deny");
   assert.equal(cfg.agent["neo-shadow"].permission.edit[".neo/brain/**"], "allow");
-  for (const tool of ["read", "grep", "glob"]) {
+  assert.equal(cfg.agent["neo-shadow"].permission.read["*"], "allow");
+  assert.equal(cfg.agent["neo-shadow"].permission.read["*.env"], "deny");
+  for (const tool of ["grep", "glob"]) {
     assert.equal(cfg.agent["neo-shadow"].permission[tool], "allow");
   }
 });

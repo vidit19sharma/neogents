@@ -4,7 +4,7 @@
   "smith": { "task": "deny", "edit": "deny" },
   "neo-shadow": {
     "*": "deny",
-    "read": "allow",
+    "read": { "*": "allow", "*.env": "deny", "*.env.*": "deny", "*.env.example": "allow" },
     "grep": "allow",
     "glob": "allow",
     "task": "deny",
