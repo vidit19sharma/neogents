@@ -129,7 +129,7 @@ To change the `PROGRESS.md` tail, edit the `tail -n 20` line in `brain-load.sh`.
 
 ## Project-Level AGENTS.md and CLAUDE.md
 
-`/neo:init` writes a starter `AGENTS.md` at the project root if one doesn't exist. It's the canonical instruction file every harness reads. Keep it short (target: under 100 lines) with three sections:
+`/neo:init` writes a starter `AGENTS.md` at the project root when neither instruction file exists. If only `CLAUDE.md` exists, it offers to move its content into `AGENTS.md` and replace `CLAUDE.md` with the template (`@AGENTS.md` + Compact Instructions), only on an explicit yes; otherwise both stay untouched and OpenCode reads `CLAUDE.md` as a fallback only until an `AGENTS.md` appears. `AGENTS.md` is the canonical instruction file every harness reads. Keep it short (target: under 100 lines) with three sections:
 
 - **Memory** — points to `.neo/brain/` and explains how to save.
 - **Commands** — build, test, lint commands. Filled in during the init interview.

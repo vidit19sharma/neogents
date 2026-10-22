@@ -9,6 +9,10 @@ through a one-line re-export in a project's `.opencode/plugins/`.
 
 Requires Node ≥ 20, OpenCode 1.x (verified on 1.19.1), and bash + jq for the hooks.
 
+Trinity defaults to `anthropic/claude-sonnet-5`, smith to `anthropic/claude-opus-5`; neo and neo-shadow inherit your default model.
+Configure an Anthropic provider in OpenCode or override per agent in `opencode.json` (user keys win over plugin defaults):
+`{"agent": {"trinity": {"model": "<provider/model>"}, "smith": {"model": "<provider/model>"}}}`.
+
 ```bash
 npx @vidit19sharma/neogents setup
 ```
@@ -66,7 +70,7 @@ model-dependent checks and their limitations remain recorded in Live verificatio
 | OpenCode | Script | Note |
 |---|---|---|
 | first turn of a root session (`experimental.chat.system.transform`) | `brain-load.sh` | output rides the system prompt every turn |
-| `tool.execute.before` on `write`/`edit` by `neo-shadow` | `jail.sh` | behind the `permission.edit` glob; exit 2 → thrown error; relative paths resolve against the launch directory |
+| `tool.execute.before` on `write`/`edit` by `neo-shadow` | `jail.sh` | default-deny for unlisted tools + `.neo/brain/**` edit glob, with `jail.sh` physical-path checks; exit 2 → thrown error; relative paths resolve against the launch directory |
 | `tool.execute.after` on `task` | `run-ledger.sh` | the `<task_result>` wrapper is stripped so the ledger sees the result text |
 | root `session.idle` | `checkpoint.sh` (Stop), `stop-gate.sh`, `brain-sync.sh` | |
 | `experimental.session.compacting` | `checkpoint.sh` (PreCompact), then `brain-load.sh` (`source=compact`) | root sessions only; reloads the brain, refreshes the cache, and injects it into the compaction context |

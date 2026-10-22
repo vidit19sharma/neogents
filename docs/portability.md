@@ -52,7 +52,7 @@ All scripts accept `CLAUDE_PROJECT_DIR` as the root fallback after `git rev-pars
 | Guarantee | Claude Code | OpenCode | Codex / Kiro / Cursor |
 |---|---|---|---|
 | Brain loaded at session start | `SessionStart` hook stdout | plugin injects `brain-load.sh` output into the system prompt (root sessions only) | TBD |
-| neo-shadow writes only `.neo/brain/` | `PreToolUse` hook, exit 2 | per-agent `permission.edit` glob + `bash: deny` (native), `jail.sh` behind it for symlink/hardlink checks | TBD |
+| neo-shadow writes only `.neo/brain/` | `PreToolUse` hook, exit 2 | permission default-deny for unlisted tools + `.neo/brain/**` edit glob (native), `jail.sh` behind it for physical-path/symlink/hardlink checks | TBD |
 | Spawn depth 2 | leaf agents lack the `Agent` tool | OpenCode's own `subagent_depth` (default 1) + `permission.task: deny` on leaves | TBD |
 | Checkpoint before compaction | `PreCompact` hook | compaction hook; brain context also injected into the compaction | TBD |
 | Stop-gate | `Stop` hook blocks the turn | **advisory** — one-line nudge on the next turn; OpenCode has no blockable Stop | TBD |

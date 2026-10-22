@@ -44,6 +44,10 @@ Adds `@vidit19sharma/neogents` to `plugin` in `~/.config/opencode/opencode.json`
 preserved. Repeating setup reports already configured without rewriting the file.
 If only `opencode.jsonc` exists, setup prints the entries to merge by hand and writes nothing.
 
+Trinity defaults to `anthropic/claude-sonnet-5`, smith to `anthropic/claude-opus-5`; neo and neo-shadow inherit your default model.
+Configure an Anthropic provider in OpenCode or override per agent in `opencode.json` (user keys win over plugin defaults):
+`{"agent": {"trinity": {"model": "<provider/model>"}, "smith": {"model": "<provider/model>"}}}`.
+
 Restart OpenCode, then run `/neo:init` in your project, or scaffold without a harness with
 `npx @vidit19sharma/neogents init`. See [the adapter guide](adapters/opencode/README.md)
 for local development and the OpenCode enforcement differences.
@@ -59,8 +63,10 @@ In either harness:
 ```
 
 Scaffolds `.neo/brain/` from templates, runs a short interview to fill `BRIEF.md`, and writes
-a starter `AGENTS.md` (project conventions) plus a `CLAUDE.md` that imports it, each only if
-absent. The brain loads automatically on subsequent sessions: via `SessionStart` in Claude
+a starter `AGENTS.md` (project conventions) plus a `CLAUDE.md` that imports it when neither exists,
+or just the import file when only `AGENTS.md` exists. Both existing files are left alone.
+With only `CLAUDE.md`, it offers migration and changes instruction files only on an explicit yes.
+The brain loads automatically on subsequent sessions: via `SessionStart` in Claude
 Code and the adapter's root-session system hook in OpenCode.
 
 Or, from the project directory without starting a harness:
@@ -70,11 +76,14 @@ npx @vidit19sharma/neogents init
 ```
 
 This copies the nine brain templates, creates `.neo/plans/` and `.neo/.gitignore`, and
-copies `AGENTS.md` and `CLAUDE.md` only if absent. There is no interview: fill
+copies missing instruction files unless only `CLAUDE.md` exists; then it leaves both untouched
+and prints a migration hint. The CLI never migrates automatically. There is no interview: fill
 `BRIEF.md`/`ARCHITECTURE.md` and the AGENTS command fields by hand. If you want the
 interview instead, choose `/neo:init` before running CLI init: both paths stop immediately
-when `.neo/brain/` already exists. Existing instruction files are left alone; if needed,
-add `@AGENTS.md` on its own line at the top of an existing `CLAUDE.md`.
+when `.neo/brain/` already exists. To migrate a legacy `CLAUDE.md`, move its content into
+`AGENTS.md` and replace `CLAUDE.md` with the template (`@AGENTS.md` + Compact Instructions)
+so both harnesses read the same rules. Until then, OpenCode reads `CLAUDE.md` as a fallback
+only until an `AGENTS.md` appears.
 
 ---
 

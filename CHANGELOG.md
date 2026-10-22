@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Documented OpenCode model defaults and per-agent overrides, and corrected the spec's plugin entry to the unpinned name that OpenCode re-resolves on update.
 - `SECURITY.md` now describes the npm executable and in-process OpenCode plugin trust model, setup/init writes, scaffold symlink refusals, and tag-triggered publishing with npm provenance.
 - Cut the roster from 11 agents to 4: neo, neo-shadow, trinity, smith. Codebase recon now uses Claude Code's built-in exploration subagents (keymaker, tank removed); NEO writes plan artifacts itself (architect removed); trinity writes and runs tests for what she changes (mouse folded in); NEO strips slop after review approval (switch removed); the failure protocol replaces the debugging consultant (oracle removed); shipping rules live in neo's own prompt (morpheus removed).
 - Replaced the advisory PreCompact save reminder (`save-brain.sh`) with `checkpoint.sh`: a deterministic snapshot of branch, git status, diff stat, and the last assistant message written to `.neo/CHECKPOINT.md` on PreCompact and throttled Stop. `brain-load.sh` injects the checkpoint at session start when it's less than an hour old.
@@ -49,6 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- OpenCode neo-shadow now defaults to denying unlisted tools so custom/MCP tools cannot bypass the jail; CLI init refuses symlinked instruction files; CLI init and `/neo:init` no longer shadow a legacy `CLAUDE.md`; the OpenCode stop-gate nudge fires once per stale state.
 - `brain-sync.sh` now guards detached HEAD and `REVERT_HEAD`/`BISECT_LOG` states (previously only rebase/merge/cherry-pick), and restores the user's own pre-existing staged files if the commit fails instead of leaving the index reset. Bugs originally diagnosed in PR #1 by Dakuaisu.
 - Every hook script other than `jail.sh` now resolves the git work tree root via `git rev-parse --show-toplevel` (falling back to `CLAUDE_PROJECT_DIR`) before touching `.neo/`, so a mid-session `cd` can no longer silently disable the brain. (`jail.sh` itself gained repo-root anchoring later; see below.)
 - `jail.sh` fails closed on unresolvable paths instead of skipping the check, is narrowed from `.neo/` to `.neo/brain/` so neo-shadow can no longer overwrite machine- or user-owned state (`.neo/CHECKPOINT.md`, `.neo/plans/`, `.neo/runs/`, `.neo/no-auto-commit`), and strips a trailing slash from the payload `cwd` that used to defeat the prefix check.
