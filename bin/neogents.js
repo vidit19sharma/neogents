@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -39,10 +39,11 @@ export function setup({ env = process.env, home = homedir(), log = console.log }
   const { cfg, changed } = mergeSetup(input);
   if (changed) {
     mkdirSync(folder, { recursive: true });
-    const tmp = `${file}.tmp.${process.pid}`;
+    const target = existsSync(file) ? realpathSync(file) : file;
+    const tmp = `${target}.tmp.${process.pid}`;
     try {
-      writeFileSync(tmp, JSON.stringify(cfg, null, 2) + "\n");
-      renameSync(tmp, file);
+      writeFileSync(tmp, JSON.stringify(cfg, null, 2) + "\n", existsSync(file) ? { mode: statSync(target).mode & 0o777 } : undefined);
+      renameSync(tmp, target);
     } catch (e) { rmSync(tmp, { force: true }); throw e; }
     log(`Configured ${file}`);
   } else {

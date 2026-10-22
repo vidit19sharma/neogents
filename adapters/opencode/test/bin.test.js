@@ -32,7 +32,7 @@ test("package exposes the plugin and CLI with a public zero-dependency payload",
 });
 
 import {
-  existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync,
+  existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
@@ -324,4 +324,27 @@ test("init removes a partial brain and still reports failure on retry", (t) => {
   assert.match(errors.pop(), /^neogents: EEXIST:/);
   assert.equal(existsSync(join(dir, ".neo/brain")), false);
   assert.equal(main(["init"], options), 1);
+});
+
+test("setup preserves the existing config file mode when rewriting", (t) => {
+  const { dir, options } = fixture(t);
+  const file = join(dir, "xdg/opencode/opencode.json");
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, "{}\n", { mode: 0o600 });
+  assert.equal(setup(options), 0);
+  assert.equal(statSync(file).mode & 0o777, 0o600);
+});
+
+test("setup preserves a config symlink and updates its managed target", (t) => {
+  const { dir, options } = fixture(t);
+  const folder = join(dir, "xdg/opencode");
+  const file = join(folder, "opencode.json");
+  mkdirSync(folder, { recursive: true });
+  writeFileSync(join(folder, "managed.json"), "{}\n");
+  symlinkSync("managed.json", file);
+  assert.equal(setup(options), 0);
+  assert.equal(lstatSync(file).isSymbolicLink(), true);
+  const cfg = JSON.parse(readFileSync(join(folder, "managed.json"), "utf8"));
+  assert.equal(cfg.default_agent, "neo");
+  assert.deepEqual(cfg.plugin, [packageName]);
 });
