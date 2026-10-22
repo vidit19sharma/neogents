@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `SECURITY.md` now describes the npm executable and in-process OpenCode plugin trust model, setup/init writes, scaffold symlink refusals, and tag-triggered publishing with npm provenance.
 - Cut the roster from 11 agents to 4: neo, neo-shadow, trinity, smith. Codebase recon now uses Claude Code's built-in exploration subagents (keymaker, tank removed); NEO writes plan artifacts itself (architect removed); trinity writes and runs tests for what she changes (mouse folded in); NEO strips slop after review approval (switch removed); the failure protocol replaces the debugging consultant (oracle removed); shipping rules live in neo's own prompt (morpheus removed).
 - Replaced the advisory PreCompact save reminder (`save-brain.sh`) with `checkpoint.sh`: a deterministic snapshot of branch, git status, diff stat, and the last assistant message written to `.neo/CHECKPOINT.md` on PreCompact and throttled Stop. `brain-load.sh` injects the checkpoint at session start when it's less than an hour old.
 - Removed `spawn-guard.sh` and its PreToolUse matcher; the structural guarantee (leaf agents have no `Agent` tool, enforced by CI) is the control.

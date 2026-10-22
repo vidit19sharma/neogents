@@ -12,7 +12,7 @@ Older versions are not supported. If you're on a pre-release build, update to th
 
 ## Threat model
 
-NEO is a Claude Code plugin. It ships lifecycle hooks that execute shell scripts inside your Claude Code session. Those scripts run with your full user permissions, in your working directory, with access to everything your shell account can reach.
+NEO supports Claude Code and OpenCode. Its Claude Code lifecycle hooks execute shell scripts inside your Claude Code session. Those scripts run with your full user permissions, in your working directory, with access to everything your shell account can reach.
 
 This is the same trust model as any other Claude Code plugin or hook. You should treat installing this plugin the same way you'd treat running a shell script from a third-party repo: read it first, understand what it does, and only install it if you trust the source.
 
@@ -32,6 +32,15 @@ You pick from a shortlist of at most three candidates (no pick, no fetch), and y
 
 smith's audit is a best-effort LLM review. A skill is itself a prompt, and adversarial text can target the reviewer too, so the audit lowers risk but guarantees nothing. The controls that carry the weight are your read-before-write approval, the SHA pin (the content can't change after review), and, once you commit it, the vendored copy in git: every installed skill is then diff-reviewable and shows up for teammates in PRs. Read the full skill before you approve it, as you would any third-party script.
 
+### The npm package and OpenCode plugin
+
+`npx @vidit19sharma/neogents setup` runs code from the npm registry and rewrites `~/.config/opencode/opencode.json` (or `$XDG_CONFIG_HOME/opencode/opencode.json` for a non-empty, absolute `XDG_CONFIG_HOME`).
+It merges `plugin` and sets `default_agent` only if unset, writes atomically, and never touches `.jsonc`; an already-configured JSON is not rewritten.
+`init` writes only inside the project (`.neo/`, plus `AGENTS.md` and `CLAUDE.md` if absent) and refuses symlinked `.neo`, `.neo/brain`, and `.neo/.gitignore` paths.
+The zero-dependency OpenCode plugin runs in-process in OpenCode and shells out to the same hook scripts, with the same trust model as the Claude Code hooks.
+Its jail is enforced via OpenCode `permission` globs plus `jail.sh`; see the [adapter guide](adapters/opencode/README.md) for enforcement details and limitations.
+Publishing is tag-triggered with npm provenance ([publish.yml](.github/workflows/publish.yml)).
+
 ### What the hook scripts deliberately do
 
 - `brain-load.sh` reads regular files under `.neo/brain/` (never symlinks) and prints them to stdout (injected into session context). It touches `.neo/.session` as a session start marker; no other writes, no network.
@@ -42,7 +51,7 @@ smith's audit is a best-effort LLM review. A skill is itself a prompt, and adver
 - `stop-gate.sh` reads `git status` output and either exits 0 or exits 2. No writes, no network.
 - `brain-sync.sh` runs `git add` and `git commit` on `.neo/brain/` only. No network calls, no pushes.
 
-### What the scripts deliberately do not do
+### What the hook scripts deliberately do not do
 
 - No network calls of any kind.
 - No writes outside the repo directory and `.neo/` (`brain-sync.sh` commits `.neo/brain/`; `run-ledger.sh` and `checkpoint.sh` write under `.neo/`).
@@ -50,7 +59,7 @@ smith's audit is a best-effort LLM review. A skill is itself a prompt, and adver
 - No reads of files outside the repository. `brain-load.sh` skips symlinked brain files rather than following them out of the tree.
 - No credential access, no environment variable exfiltration.
 
-The plugin is fail-open by design: when a hook can't determine what it needs, it exits 0 and allows the operation rather than blocking. This is a deliberate tradeoff documented in `docs/architecture.md`.
+The hook scripts are fail-open by design: when a hook can't determine what it needs, it exits 0 and allows the operation rather than blocking. This is a deliberate tradeoff documented in `docs/architecture.md`.
 
 ---
 
