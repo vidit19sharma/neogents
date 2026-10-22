@@ -262,7 +262,7 @@ test("session.idle on a root session: checkpoint, stop-gate, brain-sync in order
   assert.deepEqual(out4.system, ["[neo stop-gate] src/app.js changed; brain not saved"]);
 });
 
-test("stop-gate warnings are session-local and cleared on session deletion", async () => {
+test("stop-gate warnings are session-local", async () => {
   const { run } = fakeRunner({ "stop-gate.sh": { status: 2, stderr: "stale\n" } });
   const hooks = createHooks({ run, client: fakeClient("done"), worktree: "/wt", config });
   for (const id of ["r", "other"]) {
@@ -271,11 +271,6 @@ test("stop-gate warnings are session-local and cleared on session deletion", asy
     await hooks["experimental.chat.system.transform"]({ sessionID: id }, out);
     assert.deepEqual(out.system, ["[neo stop-gate] stale"]);
   }
-  await hooks.event({ event: { type: "session.deleted", properties: { info: { id: "r" } } } });
-  await hooks.event({ event: { type: "session.idle", properties: { sessionID: "r" } } });
-  const out = { system: [] };
-  await hooks["experimental.chat.system.transform"]({ sessionID: "r" }, out);
-  assert.deepEqual(out.system, ["[neo stop-gate] stale"]);
 });
 
 test("session.idle on a child session does nothing", async () => {

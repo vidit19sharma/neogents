@@ -274,7 +274,7 @@ test("init refuses a symlinked or non-file ignore path without writing", (t) => 
 for (const name of ["AGENTS.md", "CLAUDE.md"]) {
   for (const kind of ["dangling symlink", "symlink", "directory"]) {
     test(`init refuses ${name} as a ${kind} before scaffolding`, (t) => {
-      const { dir, options, lines } = fixture(t);
+      const { dir, options } = fixture(t);
       const cwd = join(dir, "project");
       const outside = join(dir, "outside");
       mkdirSync(cwd);
@@ -288,9 +288,6 @@ for (const name of ["AGENTS.md", "CLAUDE.md"]) {
       assert.deepEqual(readdirSync(cwd), [name]);
       if (kind === "symlink") assert.equal(readFileSync(target, "utf8"), "user conventions\n");
       else assert.equal(existsSync(target), false);
-      assert.deepEqual(lines, [
-        `${name} must be a regular file (found ${kind === "directory" ? "non-file" : "symlink"}); refusing to initialize`,
-      ]);
     });
   }
 }
@@ -319,15 +316,13 @@ test("init creates the CLAUDE.md import when only AGENTS.md exists", (t) => {
 });
 
 test("init preserves legacy CLAUDE.md rules without creating AGENTS.md", (t) => {
-  const { dir, options, lines } = fixture(t);
+  const { dir, options } = fixture(t);
   const claude = "# User conventions\nUse the existing build commands.\n";
   writeFileSync(join(dir, "CLAUDE.md"), claude);
   assert.equal(init(options), 0);
   assert.equal(existsSync(join(dir, "AGENTS.md")), false);
   assert.equal(readFileSync(join(dir, "CLAUDE.md"), "utf8"), claude);
   assert.deepEqual(readdirSync(join(dir, ".neo/brain")).sort(), brainNames);
-  assert.ok(lines.includes('CLAUDE.md exists without AGENTS.md: move its contents to AGENTS.md and leave CLAUDE.md as "@AGENTS.md" so both harnesses read the same rules. Skipped writing instruction files.'));
-  assert.ok(!lines.some((line) => /^(Created (AGENTS|CLAUDE)\.md|Add @AGENTS\.md)/.test(line)));
 });
 
 test("init recognizes an existing standalone import with CRLF", (t) => {

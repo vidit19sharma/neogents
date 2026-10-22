@@ -7,7 +7,6 @@
     "read": "allow",
     "grep": "allow",
     "glob": "allow",
-    "list": "allow",
     "task": "deny",
     "bash": "deny",
     "edit": { "*": "deny", ".neo/brain/**": "allow" }

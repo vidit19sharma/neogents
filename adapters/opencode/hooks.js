@@ -25,6 +25,7 @@ export function patchTargets(text) {
 }
 
 export function createHooks({ run, client, worktree, directory = worktree, config }) {
+  // ponytail: per-session caches live for the process; add eviction if long TUI sessions show growth
   const agentOf = new Map(); // sessionID -> agent name (from chat.message)
   const children = new Set(); // sessionIDs created with a parent
   const brain = new Map(); // sessionID -> cached brain-load stdout
@@ -69,15 +70,6 @@ export function createHooks({ run, client, worktree, directory = worktree, confi
       if (event?.type === "session.created") {
         const info = p.info ?? p;
         if (info?.parentID && info?.id) children.add(info.id);
-        return;
-      }
-      if (event?.type === "session.deleted") {
-        const id = p.info?.id ?? p.sessionID;
-        agentOf.delete(id);
-        children.delete(id);
-        brain.delete(id);
-        nudge.delete(id);
-        warned.delete(id);
         return;
       }
       if (event?.type === "session.idle") {
