@@ -47,6 +47,8 @@ Changes to hook scripts take effect on the next session start (or next tool use,
 | `skills/` | 11 slash commands (`/neo:init`, `/neo:save`, `/neo:status`, `/neo:plan`, `/neo:review`, `/neo:map`, `/neo:train`, `/neo:gc`, `/neo:recall`, `/neo:evolve`, `/neo:equip`). Each is a subdirectory with a `SKILL.md`. |
 | `hooks/` | `hooks.json` (event wiring) and `scripts/` (8 shell scripts that implement the enforcement layer). |
 | `templates/` | Starter files for `/neo:init`: 9 brain file templates, an `AGENTS.md` template (canonical project instructions), a `CLAUDE.md` that imports it, and the plan template. |
+| `bin/` | Dependency-free `neogents` CLI: global OpenCode setup and harness-free project initialization. |
+| `adapters/opencode/` | Plain-JS OpenCode plugin, config transforms, hook bridge, permission/model tables, and `node:test` tests. |
 | `docs/` | Architecture, hooks reference, customization guide, brain spec, workflow walkthrough, portability notes, and the design decision log under `specs/`. |
 | `.claude-plugin/` | `plugin.json` (name, version, author) and `marketplace.json`. |
 
