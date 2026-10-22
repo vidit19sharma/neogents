@@ -27,7 +27,7 @@ user's home, never in the repo. Switching harness on a project means opening it 
 
 Authoring rules for contributors:
 
-- Agent and skill bodies describe behavior ("spawn trinity", "track todos"), never a harness tool name. Tool names go in the harness block.
+- Agent and skill bodies describe behavior ("spawn trinity", "track todos"), never a harness tool name. Tool names go in the harness block. Three legacy names (`Agent tool`, `WebFetch`, `WebSearch`) still appear in a few skills; `adapters/opencode/transform.js` rewrites them, so they are tolerated but not to be added to.
 - A new hook reads JSON on stdin, exits 2 with a message on stderr to block, exits 0 otherwise, and resolves the project root the way the existing scripts do. Never read a harness-specific env var without a fallback.
 - Generated config is never edited by hand.
 

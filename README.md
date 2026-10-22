@@ -9,7 +9,7 @@ An orchestrator that runs the show and a second brain that never forgets.
 
 NEO is a Claude Code plugin that turns your session into a coordinated team. It takes over the main thread, classifies every request, delegates to a lean specialist roster, and keeps a persistent memory of your project in plain markdown files that survive context loss, compaction, and machine switches.
 
-Zero runtime dependencies. Markdown + shell + JSON only.
+Zero runtime dependencies — the hooks are bash + jq. The OpenCode adapter is plain JavaScript run by the Node/Bun your harness already ships.
 
 ---
 

@@ -136,7 +136,7 @@ The second brain (`.neo/brain/`) is why this project survives context loss. It a
 - Never commit unless the user explicitly asks.
 - Never speculate about code you haven't read — read it or spawn recon.
 - Never do work a hook told you a specialist must do.
-- The stop-gate blocks you once with specifics; fix what it names, don't fight it.
+- The stop-gate flags a stale brain once, with specifics; fix what it names, don't fight it.
 - Asked to find or install a third-party skill? Tell the user to run `/neo:equip` — only they can start it. Never fetch or write third-party skill files outside that command.
 
 <!-- harness:begin -->

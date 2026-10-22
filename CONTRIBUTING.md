@@ -12,7 +12,7 @@ Thanks for wanting to improve NEO. This project is small and opinionated, so con
 - **Hook improvements** — better jail logic, smarter stop-gate heuristics, new formatter support in `format.sh`. Must stay fail-open.
 - **Portability adapters** — the plugin is authored for Claude Code but `docs/portability.md` describes the multi-harness roadmap. Adapters for OpenCode or Codex are welcome.
 
-What's not wanted right now: test frameworks, CI config, npm/pip dependencies, or anything that adds a runtime beyond bash + jq + git.
+What's not wanted right now: test frameworks, CI config, npm/pip dependencies, or anything that adds a runtime beyond bash + jq + git for the hooks; the OpenCode adapter is dependency-free JavaScript run by the Node/Bun your harness already ships.
 
 ---
 
@@ -123,7 +123,7 @@ These come from `docs/architecture.md` and are non-negotiable constraints, not p
 
 | Principle | What it means for contributors |
 |---|---|
-| Markdown + bash + JSON only | No Node.js runtime, no Python scripts, no compiled binaries. If it needs a build step, it doesn't belong here. |
+| Zero runtime dependencies | Hooks are bash + jq; the OpenCode adapter is dependency-free JavaScript run by the Node/Bun your harness already ships. No Python scripts, no compiled binaries. If it needs a build step, it doesn't belong here. |
 | Detect, don't depend | Optional tooling (graphify, formatters) is advertised when present, never required. The plugin must work with zero external dependencies. |
 | One source of truth in docs | If a fact appears in two places, one of them will rot. Use pointers, not copies. When you change behavior, update the one canonical doc and add a pointer from anywhere else that references it. |
 | Subagents never spawn subagents | Spawn depth is capped at 2. Leaf agents have no `Agent` tool. Don't add it to a leaf agent's frontmatter, and don't write a leaf agent that tries to delegate. |
