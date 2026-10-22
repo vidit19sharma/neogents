@@ -29,6 +29,7 @@ export function createHooks({ run, client, worktree, directory = worktree, confi
   const children = new Set(); // sessionIDs created with a parent
   const brain = new Map(); // sessionID -> cached brain-load stdout
   const nudge = new Map(); // sessionID -> pending stop-gate message
+  const warned = new Set();
 
   const isRoot = (id) => !children.has(id) && config.agent[agentOf.get(id)]?.mode !== "subagent";
 
@@ -70,12 +71,25 @@ export function createHooks({ run, client, worktree, directory = worktree, confi
         if (info?.parentID && info?.id) children.add(info.id);
         return;
       }
+      if (event?.type === "session.deleted") {
+        const id = p.info?.id ?? p.sessionID;
+        agentOf.delete(id);
+        children.delete(id);
+        brain.delete(id);
+        nudge.delete(id);
+        warned.delete(id);
+        return;
+      }
       if (event?.type === "session.idle") {
         const id = p.sessionID ?? p.info?.id;
         if (!id || !isRoot(id)) return;
         run("checkpoint.sh", { hook_event_name: "Stop", last_assistant_message: await lastAssistantMessage(id) });
         const gate = run("stop-gate.sh", { stop_hook_active: false });
-        if (gate.status === 2 && gate.stderr.trim()) nudge.set(id, gate.stderr.trim());
+        if (gate.status === 0) warned.delete(id);
+        if (gate.status === 2 && gate.stderr.trim() && !warned.has(id)) {
+          nudge.set(id, gate.stderr.trim());
+          warned.add(id);
+        }
         run("brain-sync.sh", {});
       }
     },

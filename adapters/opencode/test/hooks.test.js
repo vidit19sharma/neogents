@@ -233,7 +233,8 @@ function fakeClient(lastText) {
 }
 
 test("session.idle on a root session: checkpoint, stop-gate, brain-sync in order; nudge delivered once", async () => {
-  const { run, calls } = fakeRunner({ "stop-gate.sh": { status: 2, stderr: "src/app.js changed; brain not saved\n" } });
+  const gate = { status: 2, stderr: "src/app.js changed; brain not saved\n" };
+  const { run, calls } = fakeRunner({ "stop-gate.sh": gate });
   const hooks = createHooks({ run, client: fakeClient("done"), worktree: "/wt", config });
   await hooks.event({ event: { type: "session.created", properties: { info: { id: "r" } } } });
   await hooks.event({ event: { type: "session.idle", properties: { sessionID: "r" } } });
@@ -248,6 +249,33 @@ test("session.idle on a root session: checkpoint, stop-gate, brain-sync in order
   const out2 = { system: [] };
   await hooks["experimental.chat.system.transform"]({ sessionID: "r" }, out2);
   assert.ok(!out2.system.some((s) => s.startsWith("[neo stop-gate]")));
+  await hooks.event({ event: { type: "session.idle", properties: { sessionID: "r" } } });
+  const out3 = { system: [] };
+  await hooks["experimental.chat.system.transform"]({ sessionID: "r" }, out3);
+  assert.ok(!out3.system.some((s) => s.startsWith("[neo stop-gate]")));
+  gate.status = 0;
+  await hooks.event({ event: { type: "session.idle", properties: { sessionID: "r" } } });
+  gate.status = 2;
+  await hooks.event({ event: { type: "session.idle", properties: { sessionID: "r" } } });
+  const out4 = { system: [] };
+  await hooks["experimental.chat.system.transform"]({ sessionID: "r" }, out4);
+  assert.deepEqual(out4.system, ["[neo stop-gate] src/app.js changed; brain not saved"]);
+});
+
+test("stop-gate warnings are session-local and cleared on session deletion", async () => {
+  const { run } = fakeRunner({ "stop-gate.sh": { status: 2, stderr: "stale\n" } });
+  const hooks = createHooks({ run, client: fakeClient("done"), worktree: "/wt", config });
+  for (const id of ["r", "other"]) {
+    await hooks.event({ event: { type: "session.idle", properties: { sessionID: id } } });
+    const out = { system: [] };
+    await hooks["experimental.chat.system.transform"]({ sessionID: id }, out);
+    assert.deepEqual(out.system, ["[neo stop-gate] stale"]);
+  }
+  await hooks.event({ event: { type: "session.deleted", properties: { info: { id: "r" } } } });
+  await hooks.event({ event: { type: "session.idle", properties: { sessionID: "r" } } });
+  const out = { system: [] };
+  await hooks["experimental.chat.system.transform"]({ sessionID: "r" }, out);
+  assert.deepEqual(out.system, ["[neo stop-gate] stale"]);
 });
 
 test("session.idle on a child session does nothing", async () => {
