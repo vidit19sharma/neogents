@@ -80,6 +80,32 @@ export function createHooks({ run, client, worktree, config }) {
       }
     },
 
+    "tool.execute.before": async (input, output) => {
+      if (!WRITE_TOOLS.has(input?.tool)) return;
+      if (agentOf.get(input.sessionID) !== "neo-shadow") return;
+      const file = output?.args?.filePath;
+      if (!file) return; // apply_patch carries no path; the permission glob covers it
+      const r = run("jail.sh", {
+        agent_type: "neo-shadow",
+        cwd: worktree,
+        hook_event_name: "PreToolUse",
+        tool_name: input.tool,
+        tool_input: { file_path: file },
+      });
+      if (r.status === 2) throw new Error(r.stderr.trim() || "neo: write blocked by jail.sh");
+    },
+
+    "tool.execute.after": async (input, output) => {
+      if (input?.tool !== "task") return;
+      const a = input.args ?? {};
+      run("run-ledger.sh", {
+        hook_event_name: "PostToolUse",
+        tool_name: "Task",
+        tool_input: { subagent_type: a.subagent_type, description: a.description },
+        tool_response: output?.output ?? "",
+      });
+    },
+
     // test seam
     _agentOf: (id) => agentOf.get(id),
   };
