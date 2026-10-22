@@ -52,3 +52,34 @@ test("config hook tolerates a config with no agent/command keys", async () => {
   assert.equal(Object.keys(cfg.agent).length, 2);
   assert.equal(Object.keys(cfg.command).length, 1);
 });
+
+test("system.transform runs brain-load once per root session and injects it every turn", async () => {
+  const { run, calls } = fakeRunner({ "brain-load.sh": { stdout: "BRAIN\n" } });
+  const hooks = createHooks({ run, client: {}, worktree: "/wt", config });
+  await hooks.event({ event: { type: "session.created", properties: { info: { id: "root1" } } } });
+  const out1 = { system: ["sys"] };
+  await hooks["experimental.chat.system.transform"]({ sessionID: "root1" }, out1);
+  const out2 = { system: ["sys"] };
+  await hooks["experimental.chat.system.transform"]({ sessionID: "root1" }, out2);
+  assert.deepEqual(calls, [["brain-load.sh", { source: "startup" }]]);
+  assert.deepEqual(out1.system, ["sys", "BRAIN"]);
+  assert.deepEqual(out2.system, ["sys", "BRAIN"]);
+});
+
+test("system.transform skips child sessions", async () => {
+  const { run, calls } = fakeRunner({ "brain-load.sh": { stdout: "BRAIN\n" } });
+  const hooks = createHooks({ run, client: {}, worktree: "/wt", config });
+  await hooks.event({ event: { type: "session.created", properties: { info: { id: "child1", parentID: "root1" } } } });
+  const out = { system: [] };
+  await hooks["experimental.chat.system.transform"]({ sessionID: "child1" }, out);
+  assert.deepEqual(calls, []);
+  assert.deepEqual(out.system, []);
+});
+
+test("chat.message records the agent per session", async () => {
+  const { run } = fakeRunner();
+  const hooks = createHooks({ run, client: {}, worktree: "/wt", config });
+  await hooks["chat.message"]({ sessionID: "s1", agent: "neo-shadow" }, {});
+  assert.equal(hooks._agentOf("s1"), "neo-shadow");
+  assert.equal(hooks._agentOf("unknown"), undefined);
+});

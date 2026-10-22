@@ -51,5 +51,36 @@ export function createHooks({ run, client, worktree, config }) {
         cfg.command[name] = { ...def, ...(cfg.command[name] ?? {}) };
       }
     },
+
+    event: async ({ event }) => {
+      const p = event?.properties ?? {};
+      if (event?.type === "session.created") {
+        const info = p.info ?? p;
+        if (info?.parentID && info?.id) children.add(info.id);
+      }
+    },
+
+    "chat.message": async (input) => {
+      if (input?.sessionID && input.agent) agentOf.set(input.sessionID, input.agent);
+    },
+
+    "experimental.chat.system.transform": async (input, output) => {
+      const id = input?.sessionID;
+      if (!id || !isRoot(id)) return;
+      if (!brain.has(id)) {
+        const r = run("brain-load.sh", { source: "startup" });
+        brain.set(id, r.stdout.trim());
+      }
+      const text = brain.get(id);
+      if (text) output.system.push(text);
+      const n = nudge.get(id);
+      if (n) {
+        output.system.push(`[neo stop-gate] ${n}`);
+        nudge.delete(id);
+      }
+    },
+
+    // test seam
+    _agentOf: (id) => agentOf.get(id),
   };
 }
