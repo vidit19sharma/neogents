@@ -129,3 +129,59 @@ test("tool.execute.after logs task spawns to the run ledger", async () => {
     },
   ]]);
 });
+
+function fakeClient(lastText) {
+  return {
+    session: {
+      messages: async () => ({
+        data: [
+          { info: { role: "user" }, parts: [{ type: "text", text: "hi" }] },
+          { info: { role: "assistant" }, parts: [{ type: "text", text: lastText }, { type: "tool", text: "ignored" }] },
+        ],
+      }),
+    },
+  };
+}
+
+test("session.idle on a root session: checkpoint, stop-gate, brain-sync in order; nudge delivered once", async () => {
+  const { run, calls } = fakeRunner({ "stop-gate.sh": { status: 2, stderr: "src/app.js changed; brain not saved\n" } });
+  const hooks = createHooks({ run, client: fakeClient("done"), worktree: "/wt", config });
+  await hooks.event({ event: { type: "session.created", properties: { info: { id: "r" } } } });
+  await hooks.event({ event: { type: "session.idle", properties: { sessionID: "r" } } });
+  assert.deepEqual(calls, [
+    ["checkpoint.sh", { hook_event_name: "Stop", last_assistant_message: "done" }],
+    ["stop-gate.sh", { stop_hook_active: false }],
+    ["brain-sync.sh", {}],
+  ]);
+  const out1 = { system: [] };
+  await hooks["experimental.chat.system.transform"]({ sessionID: "r" }, out1);
+  assert.ok(out1.system.includes("[neo stop-gate] src/app.js changed; brain not saved"));
+  const out2 = { system: [] };
+  await hooks["experimental.chat.system.transform"]({ sessionID: "r" }, out2);
+  assert.ok(!out2.system.some((s) => s.startsWith("[neo stop-gate]")));
+});
+
+test("session.idle on a child session does nothing", async () => {
+  const { run, calls } = fakeRunner();
+  const hooks = createHooks({ run, client: fakeClient("x"), worktree: "/wt", config });
+  await hooks.event({ event: { type: "session.created", properties: { info: { id: "c", parentID: "r" } } } });
+  await hooks.event({ event: { type: "session.idle", properties: { sessionID: "c" } } });
+  assert.deepEqual(calls, []);
+});
+
+test("session.idle survives an SDK that cannot list messages", async () => {
+  const { run, calls } = fakeRunner();
+  const hooks = createHooks({ run, client: {}, worktree: "/wt", config });
+  await hooks.event({ event: { type: "session.idle", properties: { sessionID: "r" } } });
+  assert.deepEqual(calls[0], ["checkpoint.sh", { hook_event_name: "Stop", last_assistant_message: "" }]);
+});
+
+test("compacting writes a PreCompact checkpoint and re-injects the cached brain", async () => {
+  const { run, calls } = fakeRunner({ "brain-load.sh": { stdout: "BRAIN\n" } });
+  const hooks = createHooks({ run, client: fakeClient("last"), worktree: "/wt", config });
+  await hooks["experimental.chat.system.transform"]({ sessionID: "r" }, { system: [] });
+  const out = { context: [] };
+  await hooks["experimental.session.compacting"]({ sessionID: "r" }, out);
+  assert.deepEqual(calls[1], ["checkpoint.sh", { hook_event_name: "PreCompact", last_assistant_message: "last" }]);
+  assert.deepEqual(out.context, ["BRAIN"]);
+});

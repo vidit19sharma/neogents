@@ -57,6 +57,15 @@ export function createHooks({ run, client, worktree, config }) {
       if (event?.type === "session.created") {
         const info = p.info ?? p;
         if (info?.parentID && info?.id) children.add(info.id);
+        return;
+      }
+      if (event?.type === "session.idle") {
+        const id = p.sessionID ?? p.info?.id;
+        if (!id || !isRoot(id)) return;
+        run("checkpoint.sh", { hook_event_name: "Stop", last_assistant_message: await lastAssistantMessage(id) });
+        const gate = run("stop-gate.sh", { stop_hook_active: false });
+        if (gate.status === 2 && gate.stderr.trim()) nudge.set(id, gate.stderr.trim());
+        run("brain-sync.sh", {});
       }
     },
 
@@ -104,6 +113,16 @@ export function createHooks({ run, client, worktree, config }) {
         tool_input: { subagent_type: a.subagent_type, description: a.description },
         tool_response: output?.output ?? "",
       });
+    },
+
+    "experimental.session.compacting": async (input, output) => {
+      const id = input?.sessionID;
+      run("checkpoint.sh", {
+        hook_event_name: "PreCompact",
+        last_assistant_message: id ? await lastAssistantMessage(id) : "",
+      });
+      const text = id ? brain.get(id) : "";
+      if (text) output.context.push(text);
     },
 
     // test seam
