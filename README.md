@@ -36,7 +36,7 @@ claude --plugin-dir .
 /neo:init
 ```
 
-Scaffolds `.neo/brain/` from templates, runs a short interview to fill `BRIEF.md`, and writes a starter `CLAUDE.md` if none exists. The brain loads automatically on every subsequent session start via the `SessionStart` hook.
+Scaffolds `.neo/brain/` from templates, runs a short interview to fill `BRIEF.md`, and writes a starter `AGENTS.md` (project conventions) plus a `CLAUDE.md` that imports it, each only if absent. The brain loads automatically on every subsequent session start via the `SessionStart` hook.
 
 ---
 
@@ -165,6 +165,7 @@ neo/
 │       └── format.sh
 ├── templates/
 │   ├── brain/               # 9 brain file templates
+│   ├── AGENTS.md
 │   ├── CLAUDE.md
 │   └── plan.md
 ├── settings.json            # {"agent": "neo"}

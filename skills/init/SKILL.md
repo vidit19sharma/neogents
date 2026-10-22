@@ -1,11 +1,11 @@
 ---
 name: init
-description: Initialize the NEO second brain in this project. Scaffolds .neo/brain/ from templates, runs a short interview to fill BRIEF.md, and writes a starter CLAUDE.md if none exists. Use when a project has no .neo/ directory yet.
+description: Initialize the NEO second brain in this project. Scaffolds .neo/brain/ from templates, runs a short interview to fill BRIEF.md, and writes starter AGENTS.md and CLAUDE.md files if absent. Use when a project has no .neo/ directory yet.
 ---
 
 # /neo:init — bootstrap the second brain
 
-Current state: !`ls -d .neo 2>/dev/null || echo "no .neo directory"` · CLAUDE.md: !`ls CLAUDE.md 2>/dev/null || echo "absent"`
+Current state: !`ls -d .neo 2>/dev/null || echo "no .neo directory"` · AGENTS.md: !`ls AGENTS.md 2>/dev/null || echo "absent"` · CLAUDE.md: !`ls CLAUDE.md 2>/dev/null || echo "absent"`
 
 ## Steps
 
@@ -32,6 +32,7 @@ Current state: !`ls -d .neo 2>/dev/null || echo "no .neo directory"` · CLAUDE.m
 5. **Write**:
    - Fill `.neo/brain/BRIEF.md` from the interview (replace all placeholder comments).
    - If the codebase is non-empty, do a quick exploration pass to fill `.neo/brain/ARCHITECTURE.md` stack + layout sections. Leave patterns/gotchas to accumulate naturally.
-   - If `CLAUDE.md` is absent, copy `${CLAUDE_PLUGIN_ROOT}/templates/CLAUDE.md` and fill the command placeholders. If present, leave it alone.
+   - If `AGENTS.md` is absent, copy `${CLAUDE_PLUGIN_ROOT}/templates/AGENTS.md` and fill the command placeholders. If present, leave it alone — it is the project's canonical instruction file, read by every harness.
+   - If `CLAUDE.md` is absent, copy `${CLAUDE_PLUGIN_ROOT}/templates/CLAUDE.md` as-is (it imports AGENTS.md). If present, leave it alone.
 
 6. **Report**: list created files, then: "Brain initialized. It loads automatically next session; save anytime with /neo:save."

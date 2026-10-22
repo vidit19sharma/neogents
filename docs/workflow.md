@@ -47,7 +47,7 @@ Run `/neo:init` to bootstrap the brain. Here's what happens:
 
 3. **Interview.** NEO asks one question at a time, leading each with its best-guess answer inferred from the codebase. It reads `package.json`, `Makefile`, and similar files before asking about build commands. It confirms; it doesn't ask blind.
 
-4. **Write.** Fills `.neo/brain/BRIEF.md` from your answers. If the codebase is non-empty, NEO does a quick exploration pass to populate the stack and layout sections of `ARCHITECTURE.md`. If no `CLAUDE.md` exists, it copies `templates/CLAUDE.md` and fills the command placeholders.
+4. **Write.** Fills `.neo/brain/BRIEF.md` from your answers. If the codebase is non-empty, NEO does a quick exploration pass to populate the stack and layout sections of `ARCHITECTURE.md`. If no `AGENTS.md` exists, it copies `templates/AGENTS.md` and fills the command placeholders; if no `CLAUDE.md` exists, it copies `templates/CLAUDE.md`, which imports `AGENTS.md`.
 
 5. **Report.** Lists the created files and confirms: "Brain initialized. It loads automatically next session; save anytime with /neo:save."
 
