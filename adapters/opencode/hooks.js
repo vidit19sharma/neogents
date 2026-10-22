@@ -124,7 +124,7 @@ export function createHooks({ run, client, worktree, directory = worktree, confi
           tool_name: input.tool,
           tool_input: { file_path: resolve(directory, target) },
         });
-        if (r.status === 2) throw new Error(r.stderr.trim() || "neo: write blocked by jail.sh");
+        if (r.status !== 0) throw new Error(r.status === 2 ? r.stderr.trim() || "neo: write blocked by jail.sh" : `jail.sh failed (status ${r.status})`);
       }
     },
 

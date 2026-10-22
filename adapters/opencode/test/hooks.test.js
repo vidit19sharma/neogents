@@ -121,6 +121,18 @@ test("tool.execute.before runs jail.sh for neo-shadow writes and throws on exit 
   ]]);
 });
 
+for (const status of [127, null]) {
+  test(`tool.execute.before blocks neo-shadow writes when jail.sh status is ${status}`, async () => {
+    const { run } = fakeRunner({ "jail.sh": { status, stderr: "unexpected failure\n" } });
+    const hooks = createHooks({ run, client: {}, worktree: "/wt", config });
+    await hooks["chat.message"]({ sessionID: "s1", agent: "neo-shadow" }, {});
+    await assert.rejects(
+      () => hooks["tool.execute.before"]({ tool: "write", sessionID: "s1" }, { args: { filePath: "/wt/.neo/brain/ACTIVE.md" } }),
+      { message: `jail.sh failed (status ${status})` },
+    );
+  });
+}
+
 test("tool.execute.before allows when jail.sh exits 0 and skips other agents/tools", async () => {
   const { run, calls } = fakeRunner();
   const hooks = createHooks({ run, client: {}, worktree: "/wt", config });
