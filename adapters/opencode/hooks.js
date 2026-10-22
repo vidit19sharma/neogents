@@ -18,6 +18,11 @@ export function runScript(scriptsDir, name, payload, worktree, { env = process.e
 }
 
 const WRITE_TOOLS = new Set(["write", "edit", "apply_patch"]);
+const PATCH_TARGET = /^\*\*\* (?:Add File|Update File|Delete File|Move to): (.+)$/gm;
+
+export function patchTargets(text) {
+  return [...String(text ?? "").matchAll(PATCH_TARGET)].map((m) => m[1].trim());
+}
 
 export function createHooks({ run, client, worktree, directory = worktree, config }) {
   const agentOf = new Map(); // sessionID -> agent name (from chat.message)
@@ -99,15 +104,22 @@ export function createHooks({ run, client, worktree, directory = worktree, confi
       if (!WRITE_TOOLS.has(input?.tool)) return;
       if (agentOf.get(input.sessionID) !== "neo-shadow") return;
       const file = output?.args?.filePath;
-      if (!file) return; // apply_patch carries no path; the permission glob covers it
-      const r = run("jail.sh", {
-        agent_type: "neo-shadow",
-        cwd: directory,
-        hook_event_name: "PreToolUse",
-        tool_name: input.tool,
-        tool_input: { file_path: resolve(directory, file) },
-      });
-      if (r.status === 2) throw new Error(r.stderr.trim() || "neo: write blocked by jail.sh");
+      const targets = input.tool === "apply_patch"
+        ? patchTargets(output?.args?.patchText ?? output?.args?.patch)
+        : file ? [file] : [];
+      if (input.tool === "apply_patch" && targets.length === 0) {
+        throw new Error("neo: apply_patch by neo-shadow blocked — no file targets could be parsed");
+      }
+      for (const target of targets) {
+        const r = run("jail.sh", {
+          agent_type: "neo-shadow",
+          cwd: directory,
+          hook_event_name: "PreToolUse",
+          tool_name: input.tool,
+          tool_input: { file_path: resolve(directory, target) },
+        });
+        if (r.status === 2) throw new Error(r.stderr.trim() || "neo: write blocked by jail.sh");
+      }
     },
 
     "tool.execute.after": async (input, output) => {

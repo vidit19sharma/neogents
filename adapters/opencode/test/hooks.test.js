@@ -4,6 +4,7 @@ import { mkdtempSync, writeFileSync, chmodSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { resolveWorktree, runScript } from "../hooks.js";
+import * as hooksModule from "../hooks.js";
 
 test("resolveWorktree uses the launch directory when there is no git worktree", () => {
   assert.equal(resolveWorktree("/repo", "/repo/sub"), "/repo");
@@ -128,9 +129,55 @@ test("tool.execute.before allows when jail.sh exits 0 and skips other agents/too
   await hooks["tool.execute.before"]({ tool: "edit", sessionID: "s1" }, { args: { filePath: "/wt/.neo/brain/ACTIVE.md" } });
   await hooks["tool.execute.before"]({ tool: "write", sessionID: "s2" }, { args: { filePath: "/wt/x" } });
   await hooks["tool.execute.before"]({ tool: "read", sessionID: "s1" }, { args: { filePath: "/wt/x" } });
-  await hooks["tool.execute.before"]({ tool: "apply_patch", sessionID: "s1" }, { args: { patchText: "..." } });
   assert.equal(calls.length, 1);
   assert.equal(calls[0][0], "jail.sh");
+});
+
+test("patchTargets parses Add/Update/Delete/Move headers and ignores patch content", () => {
+  const patch = "*** Begin Patch\n*** Add File: .neo/brain/new.md  \n+hello\n*** Update File: .neo/brain/old.md\n*** Move to: .neo/brain/moved.md\n@@\n-*** Delete File: ignored.md\n*** Delete File: .neo/brain/gone.md\n*** End Patch";
+  assert.deepEqual(hooksModule.patchTargets(patch), [
+    ".neo/brain/new.md", ".neo/brain/old.md", ".neo/brain/moved.md", ".neo/brain/gone.md",
+  ]);
+  assert.deepEqual(hooksModule.patchTargets(undefined), []);
+});
+
+test("tool.execute.before jails every apply_patch target and rejects the second denied target", async () => {
+  for (const status of [2, 0]) {
+    const calls = [];
+    const run = (name, payload) => {
+      calls.push([name, payload]);
+      return { status: calls.length === 2 ? status : 0, stdout: "", stderr: "second target escapes the jail\n" };
+    };
+    const hooks = createHooks({ run, client: {}, worktree: "/wt", directory: "/wt/pkg", config });
+    await hooks["chat.message"]({ sessionID: "s1", agent: "neo-shadow" }, {});
+    const args = { patchText: "*** Update File: .neo/brain/old.md\n*** Move to: /outside/moved.md" };
+    const execute = () => hooks["tool.execute.before"]({ tool: "apply_patch", sessionID: "s1" }, { args });
+    if (status === 2) await assert.rejects(execute, { message: "second target escapes the jail" });
+    else await execute();
+    assert.deepEqual(calls, ["/wt/pkg/.neo/brain/old.md", "/outside/moved.md"].map((file_path) => [
+      "jail.sh",
+      { agent_type: "neo-shadow", cwd: "/wt/pkg", hook_event_name: "PreToolUse", tool_name: "apply_patch", tool_input: { file_path } },
+    ]));
+  }
+});
+
+test("tool.execute.before rejects apply_patch with no parsed targets without calling jail.sh", async () => {
+  const { run, calls } = fakeRunner();
+  const hooks = createHooks({ run, client: {}, worktree: "/wt", config });
+  await hooks["chat.message"]({ sessionID: "s1", agent: "neo-shadow" }, {});
+  await assert.rejects(
+    () => hooks["tool.execute.before"]({ tool: "apply_patch", sessionID: "s1" }, { args: { patchText: "..." } }),
+    { message: "neo: apply_patch by neo-shadow blocked — no file targets could be parsed" },
+  );
+  assert.deepEqual(calls, []);
+});
+
+test("tool.execute.before skips jail.sh for trinity apply_patch", async () => {
+  const { run, calls } = fakeRunner();
+  const hooks = createHooks({ run, client: {}, worktree: "/wt", config });
+  await hooks["chat.message"]({ sessionID: "s1", agent: "trinity" }, {});
+  await hooks["tool.execute.before"]({ tool: "apply_patch", sessionID: "s1" }, { args: { patchText: "..." } });
+  assert.deepEqual(calls, []);
 });
 
 test("tool.execute.before resolves paths against the launch directory", async () => {
