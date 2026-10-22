@@ -1,0 +1,10 @@
+{
+  "neo": {},
+  "trinity": { "task": "deny" },
+  "smith": { "task": "deny", "edit": "deny" },
+  "neo-shadow": {
+    "task": "deny",
+    "bash": "deny",
+    "edit": { "*": "deny", ".neo/brain/**": "allow" }
+  }
+}
