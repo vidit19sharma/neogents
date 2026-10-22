@@ -308,8 +308,31 @@ test("init leaves existing instruction files alone and requests a missing import
   assert.ok(!lines.includes("Created CLAUDE.md"));
 });
 
+test("init creates the CLAUDE.md import when only AGENTS.md exists", (t) => {
+  const { dir, options, lines } = fixture(t);
+  writeFileSync(join(dir, "AGENTS.md"), "# User conventions\n");
+  assert.equal(init(options), 0);
+  assert.equal(readFileSync(join(dir, "AGENTS.md"), "utf8"), "# User conventions\n");
+  assert.equal(readFileSync(join(dir, "CLAUDE.md"), "utf8"), text("templates/CLAUDE.md"));
+  assert.ok(lines.includes("Created CLAUDE.md"));
+  assert.ok(!lines.includes("Created AGENTS.md"));
+});
+
+test("init preserves legacy CLAUDE.md rules without creating AGENTS.md", (t) => {
+  const { dir, options, lines } = fixture(t);
+  const claude = "# User conventions\nUse the existing build commands.\n";
+  writeFileSync(join(dir, "CLAUDE.md"), claude);
+  assert.equal(init(options), 0);
+  assert.equal(existsSync(join(dir, "AGENTS.md")), false);
+  assert.equal(readFileSync(join(dir, "CLAUDE.md"), "utf8"), claude);
+  assert.deepEqual(readdirSync(join(dir, ".neo/brain")).sort(), brainNames);
+  assert.ok(lines.includes('CLAUDE.md exists without AGENTS.md: move its contents to AGENTS.md and leave CLAUDE.md as "@AGENTS.md" so both harnesses read the same rules. Skipped writing instruction files.'));
+  assert.ok(!lines.some((line) => /^(Created (AGENTS|CLAUDE)\.md|Add @AGENTS\.md)/.test(line)));
+});
+
 test("init recognizes an existing standalone import with CRLF", (t) => {
   const { dir, options, lines } = fixture(t);
+  writeFileSync(join(dir, "AGENTS.md"), "# User conventions\n");
   writeFileSync(join(dir, "CLAUDE.md"), "@AGENTS.md\r\n\r\n# Existing\r\n");
   init(options);
   assert.ok(!lines.some((line) => line.startsWith("Add @AGENTS.md")));

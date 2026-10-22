@@ -99,14 +99,18 @@ export function init({ cwd = process.cwd(), log = console.log } = {}) {
       writeFileSync(ignore, ".session\n");
       log("Created .neo/.gitignore");
     }
-    for (const name of ["AGENTS.md", "CLAUDE.md"]) {
-      if (!existsSync(join(cwd, name))) {
-        copyFileSync(join(templates, name), join(cwd, name));
-        log(`Created ${name}`);
+    if (existsSync(join(cwd, "CLAUDE.md")) && !existsSync(join(cwd, "AGENTS.md"))) {
+      log('CLAUDE.md exists without AGENTS.md: move its contents to AGENTS.md and leave CLAUDE.md as "@AGENTS.md" so both harnesses read the same rules. Skipped writing instruction files.');
+    } else {
+      for (const name of ["AGENTS.md", "CLAUDE.md"]) {
+        if (!existsSync(join(cwd, name))) {
+          copyFileSync(join(templates, name), join(cwd, name));
+          log(`Created ${name}`);
+        }
       }
-    }
-    if (!/^@AGENTS\.md\r?$/m.test(readFileSync(join(cwd, "CLAUDE.md"), "utf8"))) {
-      log("Add @AGENTS.md on its own line at the top of CLAUDE.md so Claude Code reads AGENTS.md.");
+      if (!/^@AGENTS\.md\r?$/m.test(readFileSync(join(cwd, "CLAUDE.md"), "utf8"))) {
+        log("Add @AGENTS.md on its own line at the top of CLAUDE.md so Claude Code reads AGENTS.md.");
+      }
     }
     log("BRIEF.md/ARCHITECTURE.md are template placeholders to fill by hand or via /neo:init's interview.");
     log("Brain initialized. It loads automatically next session; save anytime with /neo:save.");
