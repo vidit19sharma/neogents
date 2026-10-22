@@ -348,3 +348,31 @@ test("setup preserves a config symlink and updates its managed target", (t) => {
   assert.equal(cfg.default_agent, "neo");
   assert.deepEqual(cfg.plugin, [packageName]);
 });
+
+test("smoke CI loads local agents without a model and records that scope", () => {
+  const ci = text(".github/workflows/ci.yml");
+  const smoke = ci.split("\n  smoke:\n")[1];
+  assert.equal(typeof smoke, "string");
+  for (const required of [
+    "runs-on: ubuntu-latest", "timeout-minutes: 10", "node-version: 22",
+    "npm install -g opencode-ai@1.19.1", 'git init -q "$project"',
+    'node "$GITHUB_WORKSPACE/bin/neogents.js" init',
+    'node "$GITHUB_WORKSPACE/bin/neogents.js" setup',
+    'export XDG_CONFIG_HOME="$tmp/config"',
+    'export { default } from "%s/adapters/opencode/plugin.js";',
+    '"$project/.opencode/plugins/neo.js"',
+    'assert.ok(cfg.plugin.includes("@vidit19sharma/neogents"))',
+    'assert.equal(cfg.default_agent, "neo")',
+    'JSON.stringify({ default_agent: "neo" })',
+    "opencode agent list", "for agent in neo trinity smith neo-shadow; do",
+    "failed to load plugin", "SMOKE_OK",
+  ]) assert.ok(smoke.includes(required), required);
+  assert.ok(smoke.indexOf('node "$GITHUB_WORKSPACE/bin/neogents.js" setup') < smoke.indexOf('JSON.stringify({ default_agent: "neo" })'));
+  assert.ok(smoke.indexOf('JSON.stringify({ default_agent: "neo" })') < smoke.indexOf("opencode agent list"));
+  assert.ok(!smoke.includes("opencode run"));
+  const spec = text("docs/specs/2026-10-22-opencode-adaptation-design.md");
+  const testing = spec.split("## 7. Testing\n")[1].split("\n## 8. Docs")[0];
+  const sentence = "Implemented model-free in CI (plugin load + agent registration + setup/init); the model-dependent checks are the live verification recorded in `adapters/opencode/README.md`.";
+  assert.equal(testing.split(sentence).length - 1, 1);
+  assert.ok(testing.split("\n").find((line) => line.startsWith("3. **OpenCode smoke**")).endsWith(sentence));
+});

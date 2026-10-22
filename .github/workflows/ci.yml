@@ -756,3 +756,65 @@ jobs:
 
       - name: Adapter unit tests
         run: node --test adapters/opencode/test/
+
+  smoke:
+    name: OpenCode model-free smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install pinned OpenCode
+        run: npm install -g opencode-ai@1.19.1
+
+      - name: Verify model-free setup, init, and plugin loading
+        run: |
+          set -e
+          tmp=$(mktemp -d)
+          trap 'rm -rf "$tmp"' EXIT
+          project="$tmp/project"
+          mkdir -p "$project"
+          git init -q "$project"
+          (
+            cd "$project"
+            node "$GITHUB_WORKSPACE/bin/neogents.js" init
+          )
+          for name in ACTIVE ARCHITECTURE BRIEF DECISIONS FRICTION INDEX LESSONS PROGRESS WORKFLOWS; do
+            [ -f "$project/.neo/brain/$name.md" ] || { echo "missing brain file: $name"; exit 1; }
+          done
+          [ -d "$project/.neo/plans" ]
+          [ -f "$project/AGENTS.md" ]
+          [ -f "$project/CLAUDE.md" ]
+          grep -qx '\.session' "$project/.neo/.gitignore"
+          mkdir -p "$project/.opencode/plugins"
+          printf 'export { default } from "%s/adapters/opencode/plugin.js";\n' "$GITHUB_WORKSPACE" > "$project/.opencode/plugins/neo.js"
+          export XDG_CONFIG_HOME="$tmp/config"
+          node "$GITHUB_WORKSPACE/bin/neogents.js" setup
+          node -e '
+            const assert = require("node:assert/strict");
+            const fs = require("node:fs");
+            const path = require("node:path");
+            const file = path.join(process.env.XDG_CONFIG_HOME, "opencode", "opencode.json");
+            const cfg = JSON.parse(fs.readFileSync(file, "utf8"));
+            assert.ok(cfg.plugin.includes("@vidit19sharma/neogents"));
+            assert.equal(cfg.default_agent, "neo");
+            fs.writeFileSync(file, JSON.stringify({ default_agent: "neo" }) + "\n");
+          '
+          # Use the local re-export, not an npm install of an unpublished package.
+          (
+            cd "$project"
+            opencode agent list
+          ) > "$tmp/agents.txt" 2>&1
+          cat "$tmp/agents.txt"
+          for agent in neo trinity smith neo-shadow; do
+            grep -Eq "^$agent \\(" "$tmp/agents.txt" || { echo "missing agent: $agent"; exit 1; }
+          done
+          if grep -qi 'failed to load plugin' "$tmp/agents.txt"; then
+            echo "plugin load failed"
+            exit 1
+          fi
+          echo SMOKE_OK
