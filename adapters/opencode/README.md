@@ -3,6 +3,55 @@
 Plain-JS OpenCode plugin (1.x). Loaded from the npm package `@vidit19sharma/neogents`, or locally
 through a one-line re-export in a project's `.opencode/plugins/`.
 
+## Install
+
+### npm
+
+Requires Node ≥ 20, OpenCode 1.x (verified on 1.19.1), and bash + jq for the hooks.
+
+```bash
+npx @vidit19sharma/neogents setup
+```
+
+Setup merges `plugin: ["@vidit19sharma/neogents"]` into the global OpenCode JSON and
+sets `default_agent` to `"neo"` only when unset. It preserves unrelated keys and an existing
+default choice; repeated setup does not rewrite an already-configured file. The path is
+`~/.config/opencode/opencode.json`, or `$XDG_CONFIG_HOME/opencode/opencode.json` when set.
+
+If `opencode.jsonc` exists without `opencode.json`, setup leaves it alone and prints these
+two entries to merge into your existing config, preserving any existing plugins or chosen default:
+
+```json
+"plugin": ["@vidit19sharma/neogents"]
+"default_agent": "neo"
+```
+
+These are separate config entries, not a complete JSON document. Restart OpenCode after
+configuration, then run `/neo:init` in a project. Alternatively use
+`npx @vidit19sharma/neogents init` for the harness-free scaffold; see the root
+[First run](../../README.md#first-run) section for the template/interview distinction.
+
+### local development
+
+From the neogents checkout, create a throwaway project. This writes
+`.opencode/plugins/neo.js` as a one-line re-export of your checkout's actual plugin:
+
+```bash
+repo=$(pwd -P)
+project=$(mktemp -d)
+git init -q "$project"
+mkdir -p "$project/.opencode/plugins"
+printf 'export { default } from "%s/adapters/opencode/plugin.js";\n' "$repo" > "$project/.opencode/plugins/neo.js"
+printf '{"default_agent":"neo"}\n' > "$project/opencode.json"
+cd "$project"
+opencode agent list
+```
+
+The project config above sets `"default_agent": "neo"`. This local path loads the checkout directly; do not also
+configure its npm plugin entry in that fixture. Production setup uses the global npm path.
+CI uses this local re-export and `opencode agent list` without model credentials. The
+model-dependent checks and their limitations remain recorded in Live verification below.
+
 ## What it injects (in-memory config; the hook scripts do write `.neo/`)
 
 - `cfg.agent`: `neo` (primary), `trinity`, `smith`, `neo-shadow` (subagents) — derived from `agents/*.md`

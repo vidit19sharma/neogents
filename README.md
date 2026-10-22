@@ -15,6 +15,8 @@ Zero runtime dependencies — the hooks are bash + jq. The OpenCode adapter is p
 
 ## Install
 
+### Claude Code
+
 **From the marketplace:**
 ```
 /plugin marketplace add vidit19sharma/neogents
@@ -28,15 +30,51 @@ claude --plugin-dir .
 
 `settings.json` contains `{"agent": "neo"}`, which hands the main thread to NEO on every session start. To opt out, disable the plugin or override `agent` in your user settings.
 
+### OpenCode
+
+Requires Node ≥ 20, OpenCode 1.x (verified on 1.19.1), and bash + jq for the hooks.
+
+```bash
+npx @vidit19sharma/neogents setup
+```
+
+Adds `@vidit19sharma/neogents` to `plugin` in `~/.config/opencode/opencode.json`
+(`$XDG_CONFIG_HOME/opencode/opencode.json` when `XDG_CONFIG_HOME` is set), and sets
+`default_agent` to `"neo"` only if unset. Other settings and an existing default agent are
+preserved. Repeating setup reports already configured without rewriting the file.
+If only `opencode.jsonc` exists, setup prints the entries to merge by hand and writes nothing.
+
+Restart OpenCode, then run `/neo:init` in your project, or scaffold without a harness with
+`npx @vidit19sharma/neogents init`. See [the adapter guide](adapters/opencode/README.md)
+for local development and the OpenCode enforcement differences.
+
 ---
 
 ## First run
+
+In either harness:
 
 ```
 /neo:init
 ```
 
-Scaffolds `.neo/brain/` from templates, runs a short interview to fill `BRIEF.md`, and writes a starter `AGENTS.md` (project conventions) plus a `CLAUDE.md` that imports it, each only if absent. The brain loads automatically on every subsequent session start via the `SessionStart` hook.
+Scaffolds `.neo/brain/` from templates, runs a short interview to fill `BRIEF.md`, and writes
+a starter `AGENTS.md` (project conventions) plus a `CLAUDE.md` that imports it, each only if
+absent. The brain loads automatically on subsequent sessions: via `SessionStart` in Claude
+Code and the adapter's root-session system hook in OpenCode.
+
+Or, from the project directory without starting a harness:
+
+```bash
+npx @vidit19sharma/neogents init
+```
+
+This copies the nine brain templates, creates `.neo/plans/` and `.neo/.gitignore`, and
+copies `AGENTS.md` and `CLAUDE.md` only if absent. There is no interview: fill
+`BRIEF.md`/`ARCHITECTURE.md` and the AGENTS command fields by hand. If you want the
+interview instead, choose `/neo:init` before running CLI init: both paths stop immediately
+when `.neo/brain/` already exists. Existing instruction files are left alone; if needed,
+add `@AGENTS.md` on its own line at the top of an existing `CLAUDE.md`.
 
 ---
 
