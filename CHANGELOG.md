@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-28
+
 ### Changed
 
 - Cut the roster from 11 agents to 4: neo, neo-shadow, trinity, smith. Codebase recon now uses Claude Code's built-in exploration subagents (keymaker, tank removed); NEO writes plan artifacts itself (architect removed); trinity writes and runs tests for what she changes (mouse folded in); NEO strips slop after review approval (switch removed); the failure protocol replaces the debugging consultant (oracle removed); shipping rules live in neo's own prompt (morpheus removed).
@@ -68,5 +70,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Distilled ponytail YAGNI ladder into trinity; over-engineering criteria in smith and switch (credited, MIT).
 - Documentation: architecture, brain spec, hooks reference, customization, portability, workflow, design spec.
 
-[Unreleased]: https://github.com/vidit19sharma/neogents/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/vidit19sharma/neogents/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/vidit19sharma/neogents/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/vidit19sharma/neogents/releases/tag/v0.1.0
